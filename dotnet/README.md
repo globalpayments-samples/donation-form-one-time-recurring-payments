@@ -1,108 +1,166 @@
-# .NET Card Payment Example
+# .NET — Donation Form
 
-This example demonstrates card payment processing using ASP.NET Core and the Global Payments SDK.
+One-time and recurring donation processing using ASP.NET Minimal APIs and the Global Payments GP API SDK.
 
-## Requirements
+## Prerequisites
 
-- .NET 6.0 or later
-- Global Payments account and API credentials
+| Runtime | Version | Build Tool |
+|---|---|---|
+| .NET SDK | 9.0 | dotnet CLI |
 
-## Project Structure
+## Dependencies
 
-- `Program.cs` - Main application file containing server setup and payment processing
-- `wwwroot/index.html` - Client-side payment form
-- `.env.sample` - Template for environment variables
-- `run.sh` - Convenience script to run the application
-- `appsettings.json` - Application configuration file
+| Package | Version |
+|---|---|
+| `GlobalPayments.Api` | 9.0.16 |
+| `DotEnv.Net` | 3.2.1 |
 
-## Setup
+## Quick Start
 
-1. Clone this repository
-2. Copy `.env.sample` to `.env`
-3. Update `.env` with your Global Payments credentials:
-   ```
-   PUBLIC_API_KEY=pk_test_xxx
-   SECRET_API_KEY=sk_test_xxx
-   ```
-4. Install dependencies:
+1. Navigate to the `dotnet` directory
+2. Copy `.env.sample` to `.env` and fill in your GP API credentials
+3. Restore packages:
    ```bash
    dotnet restore
    ```
-5. Run the application:
-   ```bash
-   ./run.sh
-   ```
-   Or manually:
+4. Start the server:
    ```bash
    dotnet run
    ```
+5. Open `http://localhost:8000`
 
-## Implementation Details
+## Project Structure
 
-### Server Setup
-The application uses ASP.NET Core's minimal API approach to create a lightweight web server that:
-- Serves static files from wwwroot directory
-- Processes payment requests
-- Provides configuration endpoint for client-side SDK
-
-### SDK Configuration
-The Global Payments SDK is configured using environment variables and the PorticoConfig class:
-- Loads credentials from .env file
-- Sets up service URL for API communication
-- Configures developer identification
-
-### Payment Processing
-Payment processing flow:
-1. Client submits payment token and billing zip
-2. Server creates CreditCardData with token
-3. Creates Address with postal code
-4. Processes $10 USD charge
-5. Returns success/error response
-
-### Error Handling
-Implements comprehensive error handling:
-- Catches and processes API exceptions
-- Returns appropriate HTTP status codes
-- Provides meaningful error messages
+```
+dotnet/
+├── Program.cs         # Minimal API setup, SDK config, route handlers
+├── wwwroot/
+│   └── index.html     # Donation form with GP Drop-In UI
+├── dotnet.csproj      # Project file and package references
+├── .env.sample        # Environment variable template
+├── Dockerfile
+└── run.sh
+```
 
 ## API Endpoints
 
-### GET /config
-Returns public API key for client-side SDK initialization.
+### `POST /get-access-token`
 
-Response:
+Generates a short-lived access token for the GP Drop-In UI. No request body required.
+
+**Response:**
 ```json
 {
-    "publicApiKey": "pk_test_xxx"
+  "success": true,
+  "token": "eyJhbGciOiJSUzI1NiIsInR5...",
+  "expiresIn": 600
 }
 ```
 
-### POST /process-payment
-Processes a payment using the provided token and billing information.
+### `POST /process-donation`
 
-Request Parameters:
-- `payment_token` (string, required) - Token from client-side SDK
-- `billing_zip` (string, required) - Billing postal code
+Processes a one-time donation or initiates a recurring donation.
 
-Response (Success):
+**Request parameters:**
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `payment_type` | string | Yes | `"one-time"` or `"recurring"` |
+| `payment_reference` | string | Yes | Token from GP Drop-In UI |
+| `amount` | string/number | Yes | Donation amount (must be > 0) |
+| `currency` | string | No | ISO currency code (default: `"USD"`) |
+| `donor_name` | string | Yes | Full name of donor |
+| `donor_email` | string | Yes | Email address of donor |
+| `frequency` | string | Recurring only | `monthly`, `weekly`, `quarterly`, `annually` |
+| `start_date` | string | No | `YYYY-MM-DD` (default: today) |
+| `duration_type` | string | No | `ongoing`, `end_date`, `num_payments` (default: `ongoing`) |
+| `end_date` | string | Conditional | `YYYY-MM-DD` — required when `duration_type` is `end_date` |
+| `num_payments` | integer | Conditional | Required when `duration_type` is `num_payments` |
+
+**One-time success response:**
 ```json
 {
-    "message": "Payment successful! Transaction ID: xxx"
+  "success": true,
+  "message": "Thank you for your donation!",
+  "data": {
+    "transactionId": "TXN_abc123",
+    "status": "CAPTURED",
+    "amount": 25.00,
+    "currency": "USD",
+    "donorName": "Jane Smith",
+    "donorEmail": "jane@example.com",
+    "timestamp": "2025-01-15 12:00:00"
+  }
 }
 ```
 
-Response (Error):
+**Recurring success response:**
 ```json
 {
-    "detail": "Error message"
+  "success": true,
+  "message": "Recurring donation set up successfully!",
+  "data": {
+    "transactionId": "TXN_xyz789",
+    "cardBrandTransactionId": "MCT_abc123",
+    "status": "CAPTURED",
+    "amount": 10.00,
+    "currency": "USD",
+    "donorName": "Jane Smith",
+    "donorEmail": "jane@example.com",
+    "frequency": "monthly",
+    "startDate": "2025-02-01",
+    "durationType": "ongoing",
+    "timestamp": "2025-01-15 12:00:00"
+  }
 }
+```
+
+**Error response:**
+```json
+{
+  "success": false,
+  "message": "Donation processing failed",
+  "error": {
+    "code": "GATEWAY_ERROR",
+    "details": "Transaction declined",
+    "timestamp": "2025-01-15T12:00:00.0000000Z"
+  }
+}
+```
+
+## Payment Flow
+
+1. The browser loads `index.html` (served from `wwwroot/`) and calls `POST /get-access-token` to initialize the GP Drop-In UI
+2. The donor enters card details; the Drop-In UI tokenizes them and returns a `payment_reference`
+3. The frontend submits the donation form to `POST /process-donation`
+4. `HandleProcessDonation()` in `Program.cs` reads `payment_type` and dispatches to `ProcessOneTime()` or `ProcessRecurring()`
+5. The GP API SDK charges the token and returns a transaction response
+6. The SDK is configured once at startup via `ConfigureGlobalPaymentsSDK()` and reused for all requests
+
+## Configuration
+
+Copy `.env.sample` to `.env`:
+
+```env
+GP_APP_ID=your-app-id
+GP_APP_KEY=your-app-key
+GP_APP_ENVIRONMENT=sandbox
+```
+
+| Variable | Required | Description |
+|---|---|---|
+| `GP_APP_ID` | Yes | GP API application ID |
+| `GP_APP_KEY` | Yes | GP API application key |
+| `GP_APP_ENVIRONMENT` | No | `sandbox` (default) or `production` |
+
+## Running with Docker
+
+```bash
+bash run.sh
 ```
 
 ## Security Considerations
 
-This example demonstrates basic implementation. For production use, consider:
-- Implementing additional input validation
-- Adding request rate limiting
-- Including security headers
-- Implementing proper logging
-- Adding payment fraud prevention measures
+- Never commit `.env` to version control
+- Do not log `payment_reference` tokens
+- Use HTTPS in production

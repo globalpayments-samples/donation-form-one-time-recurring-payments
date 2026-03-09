@@ -5,7 +5,7 @@
     <modelVersion>4.0.0</modelVersion>
 
     <groupId>com.globalpayments.example</groupId>
-    <artifactId>card-payments</artifactId>
+    <artifactId>donation-form</artifactId>
     <version>1.0-SNAPSHOT</version>
     <packaging>war</packaging>
 
@@ -29,6 +29,7 @@
             <artifactId>dotenv-java</artifactId>
             <version>3.0.0</version>
         </dependency>
+
 
         <!-- Servlet API -->
         <dependency>

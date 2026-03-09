@@ -1,7 +1,7 @@
 {
-  "name": "card-payments",
+  "name": "donation-form",
   "version": "1.0.0",
-  "description": "Card payments example using Node.js",
+  "description": "One-time and recurring donation form using Global Payments GP API",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"

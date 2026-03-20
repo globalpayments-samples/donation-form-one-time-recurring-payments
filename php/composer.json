@@ -1,13 +1,8 @@
 {
-    "name": "shane/php",
+    "name": "globalpayments/donation-form-one-time-recurring",
+    "description": "GP API donation form supporting one-time and recurring payments via Drop-In UI",
     "require": {
-        "globalpayments/php-sdk": "^13.1",
+        "globalpayments/php-sdk": "^13.4",
         "vlucas/phpdotenv": "^5.5"
-    },
-    "authors": [
-        {
-            "name": "Shane Logsdon",
-            "email": "shane@shanelogsdon.com"
-        }
-    ]
+    }
 }

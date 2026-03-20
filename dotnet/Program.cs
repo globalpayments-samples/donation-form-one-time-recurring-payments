@@ -2,190 +2,344 @@ using GlobalPayments.Api;
 using GlobalPayments.Api.Entities;
 using GlobalPayments.Api.PaymentMethods;
 using dotenv.net;
+using System.Security.Cryptography;
+using System.Text;
+using System.Text.Json;
 
-namespace CardPaymentSample;
+// Alias to avoid conflict with System.Environment (which is in implicit usings)
+using GpEnvironment = GlobalPayments.Api.Entities.Environment;
 
-/// <summary>
-/// Card Payment Processing Application
-/// 
-/// This application demonstrates card payment processing using the Global Payments SDK.
-/// It provides endpoints for configuration and payment processing, handling tokenized
-/// card data to ensure secure payment processing.
-/// </summary>
+namespace DonationFormSample;
+
 public class Program
 {
     public static void Main(string[] args)
     {
-        // Load environment variables from .env file
         DotEnv.Load();
 
         var builder = WebApplication.CreateBuilder(args);
-        
         var app = builder.Build();
 
-        // Configure static file serving for the payment form
         app.UseDefaultFiles();
         app.UseStaticFiles();
-        
-        // Configure the SDK on startup
-        ConfigureGlobalPaymentsSDK();
 
+        ConfigureGlobalPaymentsSDK();
         ConfigureEndpoints(app);
-        
+
         var port = System.Environment.GetEnvironmentVariable("PORT") ?? "8000";
         app.Urls.Add($"http://0.0.0.0:{port}");
-        
+
         app.Run();
     }
 
-    /// <summary>
-    /// Configures the Global Payments SDK with necessary credentials and settings.
-    /// This must be called before processing any payments.
-    /// </summary>
     private static void ConfigureGlobalPaymentsSDK()
     {
-        ServicesContainer.ConfigureService(new PorticoConfig
+        var appId = System.Environment.GetEnvironmentVariable("GP_APP_ID");
+        var appKey = System.Environment.GetEnvironmentVariable("GP_APP_KEY");
+        var environment = System.Environment.GetEnvironmentVariable("GP_APP_ENVIRONMENT") ?? "sandbox";
+
+        ServicesContainer.ConfigureService(new GpApiConfig
         {
-            SecretApiKey = System.Environment.GetEnvironmentVariable("SECRET_API_KEY"),
-            DeveloperId = "000000",
-            VersionNumber = "0000",
-            ServiceUrl = "https://cert.api2.heartlandportico.com"
+            AppId = appId,
+            AppKey = appKey,
+            Environment = environment == "production" ? GpEnvironment.PRODUCTION : GpEnvironment.TEST,
+            Channel = Channel.CardNotPresent,
+            Country = "US"
         });
     }
 
-    /// <summary>
-    /// Configures the application's HTTP endpoints for payment processing.
-    /// </summary>
-    /// <param name="app">The web application to configure</param>
     private static void ConfigureEndpoints(WebApplication app)
     {
-        // Configure HTTP endpoints
-        app.MapGet("/config", () => Results.Ok(new
-        { 
-            success = true,
-            data = new {
-                publicApiKey = System.Environment.GetEnvironmentVariable("PUBLIC_API_KEY")
-            }
-        }));
-
-        ConfigurePaymentEndpoint(app);
+        app.MapPost("/get-access-token", (Delegate)HandleGetAccessToken);
+        app.MapPost("/process-donation", (Delegate)HandleProcessDonation);
     }
 
-    /// <summary>
-    /// Sanitizes postal code input by removing invalid characters.
-    /// </summary>
-    /// <param name="postalCode">The postal code to sanitize. Can be null.</param>
-    /// <returns>
-    /// A sanitized postal code containing only alphanumeric characters and hyphens,
-    /// limited to 10 characters. Returns empty string if input is null or empty.
-    /// </returns>
-    private static string SanitizePostalCode(string postalCode)
+    private static async Task<IResult> HandleGetAccessToken(HttpContext context)
     {
-        if (string.IsNullOrEmpty(postalCode)) return string.Empty;
-        
-        // Remove any characters that aren't alphanumeric or hyphen
-        var sanitized = new string(postalCode.Where(c => char.IsLetterOrDigit(c) || c == '-').ToArray());
-        
-        // Limit length to 10 characters
-        return sanitized.Length > 10 ? sanitized[..10] : sanitized;
-    }
-
-    /// <summary>
-    /// Configures the payment processing endpoint that handles card transactions.
-    /// </summary>
-    /// <param name="app">The web application to configure</param>
-    private static void ConfigurePaymentEndpoint(WebApplication app)
-    {
-        app.MapPost("/process-payment", async (HttpContext context) =>
+        try
         {
-            // Parse form data from the request
-            var form = await context.Request.ReadFormAsync();
-            var billingZip = form["billing_zip"].ToString();
-            var token = form["payment_token"].ToString();
-            var amountStr = form["amount"].ToString();
+            var appId = System.Environment.GetEnvironmentVariable("GP_APP_ID");
+            var appKey = System.Environment.GetEnvironmentVariable("GP_APP_KEY");
+            var envName = System.Environment.GetEnvironmentVariable("GP_APP_ENVIRONMENT") ?? "sandbox";
 
-            // Validate required fields are present
-            if (string.IsNullOrEmpty(token) || string.IsNullOrEmpty(billingZip) || string.IsNullOrEmpty(amountStr))
+            if (string.IsNullOrEmpty(appId) || string.IsNullOrEmpty(appKey))
+                throw new Exception("Missing required credentials: GP_APP_ID and GP_APP_KEY");
+
+            var nonceBytes = RandomNumberGenerator.GetBytes(16);
+            var nonce = Convert.ToHexString(nonceBytes).ToLowerInvariant();
+            var secretBytes = SHA512.HashData(Encoding.UTF8.GetBytes(nonce + appKey));
+            var secret = Convert.ToHexString(secretBytes).ToLowerInvariant();
+
+            var apiEndpoint = envName == "production"
+                ? "https://apis.globalpay.com/ucp/accesstoken"
+                : "https://apis.sandbox.globalpay.com/ucp/accesstoken";
+
+            var requestBody = JsonSerializer.Serialize(new
             {
-                return Results.BadRequest(new {
-                    success = false,
-                    message = "Payment processing failed",
-                    error = new {
-                        code = "VALIDATION_ERROR",
-                        details = "Missing required fields"
-                    }
-                });
+                app_id = appId,
+                nonce,
+                secret,
+                grant_type = "client_credentials",
+                seconds_to_expire = 600,
+                permissions = new[] { "PMT_POST_Create_Single" }
+            });
+
+            using var handler = new System.Net.Http.HttpClientHandler
+            {
+                AutomaticDecompression = System.Net.DecompressionMethods.GZip | System.Net.DecompressionMethods.Deflate
+            };
+            using var httpClient = new HttpClient(handler);
+            using var request = new HttpRequestMessage(HttpMethod.Post, apiEndpoint);
+            request.Content = new StringContent(requestBody, Encoding.UTF8, "application/json");
+            request.Headers.Add("X-GP-Version", "2021-03-22");
+
+            var response = await httpClient.SendAsync(request);
+            var responseBody = await response.Content.ReadAsStringAsync();
+            var responseData = JsonSerializer.Deserialize<JsonElement>(responseBody);
+
+            if (!response.IsSuccessStatusCode || !responseData.TryGetProperty("token", out var tokenElement))
+            {
+                var errorMessage = responseData.TryGetProperty("error_description", out var errDesc) ? errDesc.GetString() :
+                                   responseData.TryGetProperty("message", out var msg) ? msg.GetString() :
+                                   "Failed to generate access token";
+                throw new Exception(errorMessage);
             }
 
-            // Validate and parse amount
-            if (!decimal.TryParse(amountStr, out var amount) || amount <= 0)
+            return Results.Ok(new
             {
-                return Results.BadRequest(new {
-                    success = false,
-                    message = "Payment processing failed",
-                    error = new {
-                        code = "VALIDATION_ERROR",
-                        details = "Amount must be a positive number"
-                    }
-                });
-            }
-
-            // Initialize payment data using tokenized card information
-            var card = new CreditCardData
+                success = true,
+                token = tokenElement.GetString(),
+                expiresIn = responseData.TryGetProperty("seconds_to_expire", out var exp) ? exp.GetInt32() : 600
+            });
+        }
+        catch (Exception ex)
+        {
+            return Results.Json(new
             {
-                Token = token
-            };
+                success = false,
+                message = "Error generating access token",
+                error = ex.Message
+            }, statusCode: 500);
+        }
+    }
 
-            // Create billing address for AVS verification
-            var address = new Address
+    private static async Task<IResult> HandleProcessDonation(HttpContext context)
+    {
+        JsonElement body;
+        try
+        {
+            body = await JsonSerializer.DeserializeAsync<JsonElement>(context.Request.Body);
+        }
+        catch
+        {
+            return Results.BadRequest(new { success = false, message = "Invalid JSON body" });
+        }
+
+        if (!body.TryGetProperty("payment_type", out var paymentTypeEl) || string.IsNullOrEmpty(paymentTypeEl.GetString()))
+        {
+            return Results.BadRequest(new
             {
-                PostalCode = SanitizePostalCode(billingZip)
-            };
+                success = false,
+                message = "Missing payment_type",
+                error = "payment_type must be \"one-time\" or \"recurring\""
+            });
+        }
 
-            try
+        var paymentType = paymentTypeEl.GetString();
+
+        if (paymentType == "one-time")
+            return ProcessOneTime(body);
+        else if (paymentType == "recurring")
+            return ProcessRecurring(body);
+        else
+            return Results.BadRequest(new
             {
-                // Process the payment transaction using the provided amount
-                var response = card.Charge(amount)
-                    .WithAllowDuplicates(true)
-                    .WithCurrency("USD")
-                    .WithAddress(address)
-                    .Execute();
+                success = false,
+                message = "Invalid payment_type",
+                error = "payment_type must be \"one-time\" or \"recurring\""
+            });
+    }
 
-                // Verify transaction was successful
-                if (response.ResponseCode != "00")
-                {
-                    return Results.BadRequest(new {
-                        success = false,
-                        message = "Payment processing failed",
-                        error = new {
-                            code = "PAYMENT_DECLINED",
-                            details = response.ResponseMessage
-                        }
-                    });
-                }
+    private static IResult ProcessOneTime(JsonElement body)
+    {
+        try
+        {
+            var paymentReference = GetString(body, "payment_reference");
+            var donorName = GetString(body, "donor_name");
+            var donorEmail = GetString(body, "donor_email");
+            var currency = GetString(body, "currency") ?? "USD";
+            var amount = GetDecimal(body, "amount");
 
-                // Return success response with transaction ID
+            if (string.IsNullOrEmpty(paymentReference)) throw new Exception("Missing payment reference");
+            if (amount <= 0) throw new Exception("Invalid amount");
+            if (string.IsNullOrEmpty(donorName)) throw new Exception("Missing donor name");
+            if (string.IsNullOrEmpty(donorEmail)) throw new Exception("Missing donor email");
+
+            var card = new CreditCardData { Token = paymentReference };
+
+            var response = card.Charge(amount)
+                .WithCurrency(currency)
+                .Execute();
+
+            if (response.ResponseCode == "00" || response.ResponseCode == "SUCCESS")
+            {
                 return Results.Ok(new
                 {
                     success = true,
-                    message = $"Payment successful! Transaction ID: {response.TransactionId}",
-                    data = new {
-                        transactionId = response.TransactionId
-                    }
-                });
-            } 
-            catch (ApiException ex)
-            {
-                // Handle payment processing errors
-                return Results.BadRequest(new {
-                    success = false,
-                    message = "Payment processing failed",
-                    error = new {
-                        code = "API_ERROR",
-                        details = ex.Message
+                    message = "Thank you for your donation!",
+                    data = new
+                    {
+                        transactionId = response.TransactionId,
+                        status = response.ResponseMessage,
+                        amount = (double)amount,
+                        currency,
+                        donorName,
+                        donorEmail,
+                        timestamp = DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm:ss")
                     }
                 });
             }
-        });
+            else
+            {
+                throw new Exception("Transaction declined: " + (response.ResponseMessage ?? "Unknown error"));
+            }
+        }
+        catch (GatewayException ex)
+        {
+            return Results.Json(new
+            {
+                success = false,
+                message = "Donation processing failed",
+                error = new { code = "GATEWAY_ERROR", details = ex.Message, timestamp = DateTime.UtcNow.ToString("o") }
+            }, statusCode: 400);
+        }
+        catch (ApiException ex)
+        {
+            return Results.Json(new
+            {
+                success = false,
+                message = "API error",
+                error = new { code = "API_ERROR", details = ex.Message, timestamp = DateTime.UtcNow.ToString("o") }
+            }, statusCode: 400);
+        }
+        catch (Exception ex)
+        {
+            return Results.Json(new
+            {
+                success = false,
+                message = "Donation processing failed",
+                error = new { code = "SERVER_ERROR", details = ex.Message, timestamp = DateTime.UtcNow.ToString("o") }
+            }, statusCode: 500);
+        }
+    }
+
+    private static IResult ProcessRecurring(JsonElement body)
+    {
+        try
+        {
+            var paymentReference = GetString(body, "payment_reference");
+            var donorName = GetString(body, "donor_name");
+            var donorEmail = GetString(body, "donor_email");
+            var currency = GetString(body, "currency") ?? "USD";
+            var frequency = GetString(body, "frequency");
+            var startDate = GetString(body, "start_date") ?? DateTime.UtcNow.ToString("yyyy-MM-dd");
+            var durationType = GetString(body, "duration_type") ?? "ongoing";
+            var endDate = GetString(body, "end_date");
+            int? numPayments = body.TryGetProperty("num_payments", out var np) && np.ValueKind == JsonValueKind.Number
+                ? np.GetInt32()
+                : (int?)null;
+            var amount = GetDecimal(body, "amount");
+
+            if (string.IsNullOrEmpty(paymentReference)) throw new Exception("Missing payment reference");
+            if (amount <= 0) throw new Exception("Invalid amount");
+            if (string.IsNullOrEmpty(donorName)) throw new Exception("Missing donor name");
+            if (string.IsNullOrEmpty(donorEmail)) throw new Exception("Missing donor email");
+            if (string.IsNullOrEmpty(frequency)) throw new Exception("Missing frequency for recurring donation");
+
+            var card = new CreditCardData { Token = paymentReference };
+
+            var storedCredential = new StoredCredential
+            {
+                Initiator = StoredCredentialInitiator.CardHolder,
+                Type = StoredCredentialType.Recurring,
+                Sequence = StoredCredentialSequence.First
+            };
+
+            var response = card.Charge(amount)
+                .WithCurrency(currency)
+                .WithStoredCredential(storedCredential)
+                .Execute();
+
+            if (response.ResponseCode == "00" || response.ResponseCode == "SUCCESS")
+            {
+                return Results.Ok(new
+                {
+                    success = true,
+                    message = "Recurring donation set up successfully!",
+                    data = new
+                    {
+                        transactionId = response.TransactionId,
+                        cardBrandTransactionId = response.CardBrandTransactionId,
+                        status = response.ResponseMessage,
+                        amount = (double)amount,
+                        currency,
+                        donorName,
+                        donorEmail,
+                        frequency,
+                        startDate,
+                        durationType,
+                        endDate = durationType == "end_date" ? endDate : null,
+                        numPayments = durationType == "num_payments" ? numPayments : (int?)null,
+                        timestamp = DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm:ss")
+                    }
+                });
+            }
+            else
+            {
+                throw new Exception("Transaction declined: " + (response.ResponseMessage ?? "Unknown error"));
+            }
+        }
+        catch (GatewayException ex)
+        {
+            return Results.Json(new
+            {
+                success = false,
+                message = "Recurring donation setup failed",
+                error = new { code = "GATEWAY_ERROR", details = ex.Message, timestamp = DateTime.UtcNow.ToString("o") }
+            }, statusCode: 400);
+        }
+        catch (ApiException ex)
+        {
+            return Results.Json(new
+            {
+                success = false,
+                message = "API error",
+                error = new { code = "API_ERROR", details = ex.Message, timestamp = DateTime.UtcNow.ToString("o") }
+            }, statusCode: 400);
+        }
+        catch (Exception ex)
+        {
+            return Results.Json(new
+            {
+                success = false,
+                message = "Recurring donation setup failed",
+                error = new { code = "SERVER_ERROR", details = ex.Message, timestamp = DateTime.UtcNow.ToString("o") }
+            }, statusCode: 500);
+        }
+    }
+
+    private static string? GetString(JsonElement body, string key)
+    {
+        return body.TryGetProperty(key, out var el) && el.ValueKind != JsonValueKind.Null
+            ? el.GetString()
+            : null;
+    }
+
+    private static decimal GetDecimal(JsonElement body, string key)
+    {
+        if (!body.TryGetProperty(key, out var el)) return 0;
+        if (el.ValueKind == JsonValueKind.Number) return el.GetDecimal();
+        if (el.ValueKind == JsonValueKind.String && decimal.TryParse(el.GetString(), out var parsed)) return parsed;
+        return 0;
     }
 }

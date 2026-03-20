@@ -3,11 +3,34 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Global Payments - Developer Example</title>
+    <title>Global Payments - Donation Form</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://globalpayments-samples.github.io/css/styles.css">
+    <!-- Global Payments Drop-In UI Library -->
+    <script src="https://js.globalpay.com/4.1.11/globalpayments.js"></script>
+    <style>
+        .credit-card-card-expiration,
+        .credit-card-card-cvv {
+            margin: 0 !important;
+        }
+        .test-cards-link:hover {
+            background: #0052a3 !important;
+        }
+        #recurring-fields {
+            display: none;
+        }
+        #recurring-fields.visible {
+            display: block;
+        }
+        .duration-field {
+            display: none;
+        }
+        .duration-field.visible {
+            display: block;
+        }
+    </style>
 </head>
 <body>
     <!-- Header -->
@@ -31,170 +54,164 @@
 
     <div class="gp-container">
         <!-- Page Title -->
-        <h1 class="gp-page-title">SDK Integration Examples</h1>
-        <p class="gp-page-subtitle">Explore comprehensive examples of Global Payments SDK implementations across different payment scenarios.</p>
+        <h1 class="gp-page-title" style="text-align: center;">Donation Form</h1>
+        <p class="gp-page-subtitle" style="text-align: center;">Support us with a one-time or recurring donation using Global Payments Drop-In UI.</p>
 
-        <!-- Tabs -->
-        <div class="gp-tabs">
-            <div class="gp-tab-list">
-                <button class="gp-tab-button active" data-tab="payment-form">Payment Form</button>
-                <button class="gp-tab-button" data-tab="tokenization">Tokenization</button>
-                <button class="gp-tab-button" data-tab="webhooks">Webhooks</button>
-                <button class="gp-tab-button" data-tab="recurring">Recurring Payments</button>
+        <!-- Donation Form -->
+        <div class="gp-card">
+            <div class="gp-card-header" style="text-align: center;">
+                <h2 class="gp-card-title">Make a Donation</h2>
+                <p class="gp-card-description">
+                    Your contribution makes a difference. All transactions are secured by Global Payments.
+                </p>
             </div>
 
-            <!-- Payment Form Tab -->
-            <div class="gp-tab-content active" id="payment-form">
-                <div class="gp-card">
-                    <div class="gp-card-header">
-                        <h2 class="gp-card-title">Credit Card Payment Form</h2>
-                        <p class="gp-card-description">
-                            Secure payment processing using Global Payments tokenization with client-side form validation.
-                        </p>
-                    </div>
-                    
-                    <form id="payment-form" class="gp-form" action="/process-payment" method="POST">
-                        <div class="gp-form-group">
-                            <label for="amount" class="gp-label">Amount ($):</label>
-                            <input type="number" id="amount" name="amount" class="gp-input" min="0.01" step="0.01" value="10.00" required>
-                        </div>
-                        
-                        <div class="gp-form-group">
-                            <label for="billing_zip" class="gp-label">Billing Zip Code:</label>
-                            <input type="text" id="billing_zip" name="billing_zip" class="gp-input" placeholder="12345" required>
-                        </div>
+            <form id="donation-form" class="gp-form" style="max-width: 600px; margin: 0 auto;">
 
-                        <div class="gp-form-group">
-                            <label class="gp-label">Credit Card Information:</label>
-                            <div id="credit-card"></div>
-                        </div>
-
-                        <button type="submit" class="gp-button gp-button-primary gp-button-full">
-                            Process Payment
-                        </button>
-                    </form>
-                </div>
-            </div>
-
-            <!-- Tokenization Tab -->
-            <div class="gp-tab-content" id="tokenization">
-                <div class="gp-card">
-                    <div class="gp-card-header">
-                        <h2 class="gp-card-title">Card Tokenization</h2>
-                        <p class="gp-card-description">
-                            Securely tokenize payment methods for future use without storing sensitive card data.
-                        </p>
-                    </div>
-                    
-                    <div class="gp-alert gp-alert-info">
-                        <strong>Info:</strong> Tokens can be stored securely and used for future transactions without handling raw card data.
-                    </div>
-
-                    <form id="tokenization-form" class="gp-form">
-                        <div class="gp-form-group">
-                            <label class="gp-label">Card Information for Tokenization:</label>
-                            <div id="credit-card-token"></div>
-                        </div>
-
-                        <button type="submit" class="gp-button gp-button-primary gp-button-full">
-                            Generate Token
-                        </button>
-                    </form>
-
-                    <div id="token-result" class="gp-hidden">
-                        <h3 class="gp-card-title gp-mt-lg">Generated Token:</h3>
-                        <div class="gp-code-block" id="token-display"></div>
+                <!-- Payment Type -->
+                <div class="gp-form-group">
+                    <label class="gp-label">Donation Type:</label>
+                    <div style="display: flex; gap: 24px; margin-top: 8px;">
+                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                            <input type="radio" name="payment_type" id="type-one-time" value="one-time" checked>
+                            One-Time
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                            <input type="radio" name="payment_type" id="type-recurring" value="recurring">
+                            Recurring
+                        </label>
                     </div>
                 </div>
-            </div>
 
-            <!-- Webhooks Tab -->
-            <div class="gp-tab-content" id="webhooks">
-                <div class="gp-card">
-                    <div class="gp-card-header">
-                        <h2 class="gp-card-title">Webhook Integration</h2>
-                        <p class="gp-card-description">
-                            Configure and test webhook endpoints for real-time payment notifications.
-                        </p>
-                    </div>
-                    
-                    <div class="gp-code-block">
-// Example webhook handler
-app.post('/webhook', (req, res) => {
-    const signature = req.headers['x-gp-signature'];
-    const payload = req.body;
-    
-    // Verify webhook signature
-    if (verifySignature(payload, signature)) {
-        handlePaymentEvent(payload);
-        res.status(200).send('OK');
-    } else {
-        res.status(400).send('Invalid signature');
-    }
-});
+                <!-- Donor Info -->
+                <div class="gp-form-group">
+                    <label for="donor_name" class="gp-label">Full Name:</label>
+                    <input type="text" id="donor_name" name="donor_name" class="gp-input" placeholder="Jane Smith" value="Test Donor" required>
+                </div>
+
+                <div class="gp-form-group">
+                    <label for="donor_email" class="gp-label">Email Address:</label>
+                    <input type="email" id="donor_email" name="donor_email" class="gp-input" placeholder="jane@example.com" value="test@example.com" required>
+                </div>
+
+                <!-- Amount -->
+                <div class="gp-form-group">
+                    <label for="amount" class="gp-label">Donation Amount ($):</label>
+                    <input type="number" id="amount" name="amount" class="gp-input" min="1.00" step="0.01" value="25.00" required>
+                </div>
+
+                <!-- Billing Zip -->
+                <div class="gp-form-group">
+                    <label for="billing_zip" class="gp-label">Billing Zip Code:</label>
+                    <input type="text" id="billing_zip" name="billing_zip" class="gp-input" placeholder="12345" value="12345">
+                </div>
+
+                <!-- Recurring Fields (hidden by default) -->
+                <div id="recurring-fields">
+                    <div class="gp-form-group">
+                        <label for="frequency" class="gp-label">Frequency:</label>
+                        <select id="frequency" name="frequency" class="gp-select">
+                            <option value="monthly">Monthly</option>
+                            <option value="weekly">Weekly</option>
+                            <option value="quarterly">Quarterly</option>
+                            <option value="annually">Annually</option>
+                        </select>
                     </div>
 
-                    <div class="gp-alert gp-alert-warning">
-                        <strong>Security:</strong> Always verify webhook signatures to ensure requests are from Global Payments.
+                    <div class="gp-form-group">
+                        <label for="start_date" class="gp-label">Start Date:</label>
+                        <input type="date" id="start_date" name="start_date" class="gp-input">
+                    </div>
+
+                    <div class="gp-form-group">
+                        <label class="gp-label">Duration:</label>
+                        <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 8px;">
+                            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                                <input type="radio" name="duration_type" value="ongoing" checked>
+                                Ongoing (no end date)
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                                <input type="radio" name="duration_type" value="end_date">
+                                Until a specific date
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                                <input type="radio" name="duration_type" value="num_payments">
+                                Number of payments
+                            </label>
+                        </div>
+                    </div>
+
+                    <div id="field-end-date" class="gp-form-group duration-field">
+                        <label for="end_date" class="gp-label">End Date:</label>
+                        <input type="date" id="end_date" name="end_date" class="gp-input">
+                    </div>
+
+                    <div id="field-num-payments" class="gp-form-group duration-field">
+                        <label for="num_payments" class="gp-label">Number of Payments:</label>
+                        <input type="number" id="num_payments" name="num_payments" class="gp-input" min="1" step="1" value="12">
                     </div>
                 </div>
-            </div>
 
-            <!-- Recurring Payments Tab -->
-            <div class="gp-tab-content" id="recurring">
-                <div class="gp-card">
-                    <div class="gp-card-header">
-                        <h2 class="gp-card-title">Recurring Payments</h2>
-                        <p class="gp-card-description">
-                            Set up subscription billing and recurring payment schedules.
-                        </p>
+                <!-- Test Card Helper -->
+                <div class="gp-form-group" style="background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px; padding: 16px; margin-bottom: 20px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                        <label for="test-card-select" class="gp-label" style="margin-bottom: 0;">
+                            Use Test Card for Sandbox:
+                        </label>
+                        <a href="https://developer.globalpay.com/resources/test-cards"
+                           target="_blank"
+                           rel="noopener noreferrer"
+                           class="test-cards-link"
+                           style="display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; background: #0066cc; color: white; text-decoration: none; border-radius: 4px; font-size: 12px; font-weight: 500; transition: background 0.2s ease;">
+                            More Test Cards
+                        </a>
                     </div>
-                    
-                    <form id="recurring-form" class="gp-form">
-                        <div class="gp-form-row">
-                            <div class="gp-form-group">
-                                <label for="subscription-amount" class="gp-label">Monthly Amount ($):</label>
-                                <input type="number" id="subscription-amount" name="subscription-amount" class="gp-input" min="1.00" step="0.01" value="29.99" required>
-                            </div>
-                            
-                            <div class="gp-form-group">
-                                <label for="billing-cycle" class="gp-label">Billing Cycle:</label>
-                                <select id="billing-cycle" name="billing-cycle" class="gp-select" required>
-                                    <option value="monthly">Monthly</option>
-                                    <option value="quarterly">Quarterly</option>
-                                    <option value="annually">Annually</option>
-                                </select>
-                            </div>
-                        </div>
-
-                        <div class="gp-form-group">
-                            <label class="gp-label">Payment Method:</label>
-                            <div id="credit-card-recurring"></div>
-                        </div>
-
-                        <button type="submit" class="gp-button gp-button-primary gp-button-full">
-                            Set Up Subscription
-                        </button>
-                    </form>
+                    <select id="test-card-select" class="gp-select">
+                        <option value="">Select a test card...</option>
+                        <option value="visa">Visa - 4263970000005262</option>
+                        <option value="mastercard">MasterCard - 5425230000004415</option>
+                        <option value="discover">Discover - 6011000000000087</option>
+                        <option value="amex">American Express - 374101000000608</option>
+                        <option value="jcb">JCB - 3566000000000000</option>
+                        <option value="diners">Diners Club - 36256000000725</option>
+                    </select>
+                    <small style="color: #6c757d; font-size: 12px; margin-top: 4px; display: block;">
+                        Select a test card to auto-fill the payment form for testing.
+                    </small>
                 </div>
+
+                <!-- Test Card Data Display -->
+                <div id="test-card-data" class="gp-hidden" style="background: #e8f4fd; color: #0c5460; border: 1px solid #bee5eb; border-radius: 8px; padding: 16px; margin-bottom: 20px;">
+                    <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                        <div>
+                            <strong id="test-card-status">Selected Test Card Data:</strong>
+                            <div id="test-card-details" style="font-family: monospace; margin-top: 12px; padding: 12px; background: #f8f9fa; border-radius: 4px; font-size: 14px;"></div>
+                        </div>
+                        <button type="button" onclick="hideTestCardData()" style="background: none; border: none; font-size: 18px; cursor: pointer; color: #0c5460; padding: 0; margin-left: 16px;">&times;</button>
+                    </div>
+                </div>
+
+                <!-- Drop-In UI Card Form -->
+                <div class="gp-form-group">
+                    <label class="gp-label">Credit Card Information:</label>
+                    <div id="credit-card-form"></div>
+                </div>
+            </form>
+
+            <!-- Result Display -->
+            <div id="result-container" style="display: none; margin-top: 20px; max-width: 600px; margin-left: auto; margin-right: auto;">
+                <div id="result-message" class="gp-alert"></div>
             </div>
         </div>
     </div>
 
     <!-- Footer -->
-    <!-- 
-        DEVELOPER NOTE: Update the following footer information to match your business:
-        - Company name and copyright year
-        - Update all links to point to your actual Terms of Service, Privacy Policy, and Refund Policy pages
-        - Refund Policy link is typically required by payment processor underwriting in addition to Terms and Privacy
-        - Ensure all linked policies are accessible and up-to-date before going live
-    -->
     <footer class="gp-footer">
         <div class="gp-container">
             <div class="gp-footer-content">
                 <div class="gp-footer-section">
                     <p class="gp-footer-copyright">
-                        © 2024 Your Company Name. All rights reserved.
+                        &copy; 2025 Global Payments Donation Demo. All rights reserved.
                     </p>
                 </div>
                 <div class="gp-footer-section">
@@ -208,6 +225,254 @@ app.post('/webhook', (req, res) => {
         </div>
     </footer>
 
-    <script src="https://globalpayments-samples.github.io/js/script.js"></script>
+    <script>
+        let cardForm;
+        let accessToken;
+
+        const testCards = {
+            visa:       { number: '4263970000005262', cvv: '123',  expiry: '12/2027' },
+            mastercard: { number: '5425230000004415', cvv: '123',  expiry: '12/2027' },
+            discover:   { number: '6011000000000087', cvv: '123',  expiry: '12/2027' },
+            amex:       { number: '374101000000608',  cvv: '1234', expiry: '12/2027' },
+            jcb:        { number: '3566000000000000', cvv: '123',  expiry: '12/2027' },
+            diners:     { number: '36256000000725',   cvv: '123',  expiry: '12/2027' }
+        };
+
+        // Toggle recurring fields visibility
+        document.querySelectorAll('input[name="payment_type"]').forEach(function(radio) {
+            radio.addEventListener('change', function() {
+                const recurringFields = document.getElementById('recurring-fields');
+                if (this.value === 'recurring') {
+                    recurringFields.classList.add('visible');
+                } else {
+                    recurringFields.classList.remove('visible');
+                }
+            });
+        });
+
+        // Toggle duration sub-fields
+        document.querySelectorAll('input[name="duration_type"]').forEach(function(radio) {
+            radio.addEventListener('change', function() {
+                document.querySelectorAll('.duration-field').forEach(function(el) {
+                    el.classList.remove('visible');
+                });
+                if (this.value === 'end_date') {
+                    document.getElementById('field-end-date').classList.add('visible');
+                } else if (this.value === 'num_payments') {
+                    document.getElementById('field-num-payments').classList.add('visible');
+                }
+            });
+        });
+
+        // Set default start date to today
+        const today = new Date().toISOString().split('T')[0];
+        document.getElementById('start_date').value = today;
+
+        function initializePaymentForm() {
+            cardForm = GlobalPayments.creditCard.form('#credit-card-form', {
+                style: 'gp-default',
+                amount: document.getElementById('amount').value,
+                enableSavedPaymentMethods: false
+            });
+
+            cardForm.ready(function() {
+                if (window.selectedTestCard) {
+                    try {
+                        cardForm.frames['card-number'].setValue(window.selectedTestCard.number);
+                        cardForm.frames['card-expiration'].setValue(window.selectedTestCard.expiry.replace('/', ''));
+                        cardForm.frames['card-cvv'].setValue(window.selectedTestCard.cvv);
+                        cardForm.frames['card-holder-name'].setValue('Test User');
+                    } catch (e) {
+                        console.warn('Failed to auto-fill test card:', e);
+                    }
+                }
+            });
+
+            cardForm.on('token-success', async function(response) {
+                const paymentType = document.querySelector('input[name="payment_type"]:checked').value;
+                const amount = document.getElementById('amount').value;
+                const donorName = document.getElementById('donor_name').value;
+                const donorEmail = document.getElementById('donor_email').value;
+
+                if (!donorName || !donorEmail) {
+                    showResult('error', 'Please fill in your name and email before submitting.');
+                    return;
+                }
+
+                const payload = {
+                    payment_type: paymentType,
+                    payment_reference: response.paymentReference,
+                    amount: parseFloat(amount),
+                    currency: 'USD',
+                    donor_name: donorName,
+                    donor_email: donorEmail
+                };
+
+                if (paymentType === 'recurring') {
+                    payload.frequency = document.getElementById('frequency').value;
+                    payload.start_date = document.getElementById('start_date').value;
+                    payload.duration_type = document.querySelector('input[name="duration_type"]:checked').value;
+
+                    if (payload.duration_type === 'end_date') {
+                        payload.end_date = document.getElementById('end_date').value;
+                    } else if (payload.duration_type === 'num_payments') {
+                        payload.num_payments = parseInt(document.getElementById('num_payments').value, 10);
+                    }
+                }
+
+                try {
+                    const res = await fetch('/process-donation', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+
+                    const data = await res.json();
+
+                    if (data.success) {
+                        showResult('success', buildSuccessHtml(paymentType, data.data));
+                    } else {
+                        showResult('error', 'Donation failed: ' + (data.error || data.message));
+                    }
+                } catch (err) {
+                    showResult('error', 'Error submitting donation: ' + err.message);
+                }
+            });
+
+            cardForm.on('token-error', function(response) {
+                showResult('error', 'Card validation failed: ' + (response.reasons?.[0]?.message || 'Invalid card details'));
+            });
+        }
+
+        function resetForm() {
+            try {
+                cardForm.dispose();
+                document.getElementById('credit-card-form').innerHTML = '';
+                window.selectedTestCard = null;
+                initializePaymentForm();
+            } catch (e) {
+                console.warn('Form reset failed:', e);
+            }
+        }
+
+        function buildSuccessHtml(paymentType, d) {
+            const isRecurring = paymentType === 'recurring';
+            const typeLabel = isRecurring
+                ? 'Recurring Donation (' + capitalize(d.frequency) + ')'
+                : 'One-Time Donation';
+            const amount = parseFloat(d.amount).toFixed(2);
+
+            let html = '<strong>' + (isRecurring ? 'Recurring Donation Set Up!' : 'Donation Confirmed!') + '</strong>';
+            html += '<table style="width:100%;margin-top:12px;border-collapse:collapse;font-size:14px;">';
+
+            html += '<tr><td colspan="2" style="padding:6px 0 2px;font-weight:600;border-bottom:1px solid rgba(0,0,0,0.1);">Donation Summary</td></tr>';
+            html += row('Type', typeLabel);
+            html += row('Amount', d.currency + ' ' + amount);
+            html += row('Donor', escHtml(d.donorName) + ' &lt;' + escHtml(d.donorEmail) + '&gt;');
+
+            html += '<tr><td colspan="2" style="padding:10px 0 2px;font-weight:600;border-bottom:1px solid rgba(0,0,0,0.1);">Transaction Details</td></tr>';
+            html += row('Transaction ID', '<code>' + d.transactionId + '</code>');
+            html += row('Status', d.status);
+            html += row('Processed', d.timestamp);
+
+            if (isRecurring) {
+                html += '<tr><td colspan="2" style="padding:10px 0 2px;font-weight:600;border-bottom:1px solid rgba(0,0,0,0.1);">Recurring Schedule</td></tr>';
+                html += row('Frequency', capitalize(d.frequency));
+                html += row('Start Date', d.startDate);
+                const durationLabel = d.durationType === 'end_date' ? 'Until ' + d.endDate
+                    : d.durationType === 'num_payments' ? d.numPayments + ' payments'
+                    : 'Ongoing';
+                html += row('Duration', durationLabel);
+                if (d.cardBrandTransactionId) {
+                    html += row('Scheme Reference', '<code>' + d.cardBrandTransactionId + '</code>');
+                }
+            }
+
+            html += '</table>';
+            return html;
+        }
+
+        function row(label, value) {
+            return '<tr>'
+                + '<td style="padding:4px 8px 4px 0;color:#555;white-space:nowrap;vertical-align:top;">' + label + '</td>'
+                + '<td style="padding:4px 0;word-break:break-all;">' + value + '</td>'
+                + '</tr>';
+        }
+
+        function capitalize(s) {
+            return s ? s.charAt(0).toUpperCase() + s.slice(1) : '';
+        }
+
+        function escHtml(s) {
+            return (s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+        }
+
+        function showResult(type, message) {
+            const container = document.getElementById('result-container');
+            const el = document.getElementById('result-message');
+            el.className = 'gp-alert gp-alert-' + (type === 'success' ? 'success' : 'error');
+            el.innerHTML = '<strong>' + (type === 'success' ? 'Success!' : 'Error!') + '</strong> ' + message;
+            container.style.display = 'block';
+            container.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+
+        function hideTestCardData() {
+            document.getElementById('test-card-data').classList.add('gp-hidden');
+            window.selectedTestCard = null;
+        }
+
+        function showTestCardData(cardData, autoFilled) {
+            const el = document.getElementById('test-card-data');
+            document.getElementById('test-card-status').textContent = autoFilled
+                ? 'Test Card Auto-Filled:'
+                : 'Test Card Data - Please Enter Manually:';
+            document.getElementById('test-card-details').innerHTML =
+                '<strong>Card Number:</strong> ' + cardData.number + '<br>' +
+                '<strong>Expiration:</strong> ' + cardData.expiry + '<br>' +
+                '<strong>CVV:</strong> ' + cardData.cvv + '<br>' +
+                '<strong>Cardholder:</strong> Test User';
+            el.classList.remove('gp-hidden');
+        }
+
+        document.getElementById('test-card-select').addEventListener('change', function(e) {
+            const selected = e.target.value;
+            if (!selected || !cardForm) return;
+            const cardData = testCards[selected];
+            if (cardData) {
+                resetForm();
+                window.selectedTestCard = cardData;
+                showTestCardData(cardData, true);
+            }
+            e.target.value = '';
+        });
+
+        document.addEventListener('DOMContentLoaded', async function() {
+            try {
+                const tokenResponse = await fetch('/get-access-token', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+
+                const tokenData = await tokenResponse.json();
+
+                if (!tokenData.success || !tokenData.token) {
+                    throw new Error('Failed to get access token: ' + (tokenData.error || 'Unknown error'));
+                }
+
+                accessToken = tokenData.token;
+
+                GlobalPayments.configure({
+                    accessToken: accessToken,
+                    apiVersion: '2021-03-22',
+                    env: 'sandbox'
+                });
+
+                initializePaymentForm();
+
+            } catch (err) {
+                showResult('error', 'Failed to initialize payment form: ' + err.message);
+            }
+        });
+    </script>
 </body>
 </html>

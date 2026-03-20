@@ -1,112 +1,165 @@
-# Node.js Card Payment Example
+# Node.js — Donation Form
 
-This example demonstrates card payment processing using Express.js and the Global Payments SDK.
+One-time and recurring donation processing using Express.js and the Global Payments GP API SDK.
 
-## Requirements
+## Prerequisites
 
-- Node.js 14.x or later
-- npm (Node Package Manager)
-- Global Payments account and API credentials
+| Runtime | Version | Package Manager |
+|---|---|---|
+| Node.js | 18+ | npm |
 
-## Project Structure
+## Dependencies
 
-- `server.js` - Main application file containing server setup and payment processing
-- `index.html` - Client-side payment form
-- `package.json` - Project dependencies and scripts
-- `.env.sample` - Template for environment variables
-- `run.sh` - Convenience script to run the application
+| Package | Version |
+|---|---|
+| `globalpayments-api` | ^3.10.6 |
+| `express` | ^4.18.2 |
+| `dotenv` | ^16.3.1 |
 
-## Setup
+## Quick Start
 
-1. Clone this repository
-2. Copy `.env.sample` to `.env`
-3. Update `.env` with your Global Payments credentials:
-   ```
-   PUBLIC_API_KEY=pk_test_xxx
-   SECRET_API_KEY=sk_test_xxx
-   ```
-4. Install dependencies:
+1. Navigate to the `nodejs` directory
+2. Copy `.env.sample` to `.env` and fill in your GP API credentials
+3. Install dependencies:
    ```bash
    npm install
    ```
-5. Run the application:
+4. Start the server:
    ```bash
-   ./run.sh
+   npm start
    ```
-   Or manually:
-   ```bash
-   node server.js
-   ```
+5. Open `http://localhost:8000`
 
-## Implementation Details
+## Project Structure
 
-### Server Setup
-The application uses Express.js to create a web server that:
-- Serves static files
-- Processes payment requests
-- Provides configuration endpoint for client-side SDK
-- Handles JSON and form-encoded requests
-
-### SDK Configuration
-Global Payments SDK configuration using environment variables:
-- Loads credentials from .env file
-- Sets up service URL for API communication
-- Configures developer identification
-
-### Payment Processing
-Payment processing flow:
-1. Client submits payment token and billing zip
-2. Server creates CreditCardData with token
-3. Creates Address with postal code
-4. Processes $10 USD charge
-5. Returns success/error response
-
-### Error Handling
-Implements comprehensive error handling:
-- Catches and processes API exceptions
-- Differentiates between API and general errors
-- Returns appropriate error messages
+```
+nodejs/
+├── server.js          # Express server, SDK config, route handlers
+├── index.html         # Donation form with GP Drop-In UI
+├── package.json       # Dependencies
+├── .env.sample        # Environment variable template
+├── Dockerfile
+└── run.sh
+```
 
 ## API Endpoints
 
-### GET /config
-Returns public API key for client-side SDK initialization.
+### `POST /get-access-token`
 
-Response:
+Generates a short-lived access token for the GP Drop-In UI. No request body required.
+
+**Response:**
 ```json
 {
-    "publicApiKey": "pk_test_xxx"
+  "success": true,
+  "token": "eyJhbGciOiJSUzI1NiIsInR5...",
+  "expiresIn": 600
 }
 ```
 
-### POST /process-payment
-Processes a payment using the provided token and billing information.
+### `POST /process-donation`
 
-Request Parameters:
-- `payment_token` (string, required) - Token from client-side SDK
-- `billing_zip` (string, required) - Billing postal code
+Processes a one-time donation or initiates a recurring donation.
 
-Response (Success):
-```
-Payment successful! Transaction ID: xxx
+**Request parameters:**
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `payment_type` | string | Yes | `"one-time"` or `"recurring"` |
+| `payment_reference` | string | Yes | Token from GP Drop-In UI |
+| `amount` | string/number | Yes | Donation amount (must be > 0) |
+| `currency` | string | No | ISO currency code (default: `"USD"`) |
+| `donor_name` | string | Yes | Full name of donor |
+| `donor_email` | string | Yes | Email address of donor |
+| `frequency` | string | Recurring only | `monthly`, `weekly`, `quarterly`, `annually` |
+| `start_date` | string | No | `YYYY-MM-DD` (default: today) |
+| `duration_type` | string | No | `ongoing`, `end_date`, `num_payments` (default: `ongoing`) |
+| `end_date` | string | Conditional | `YYYY-MM-DD` — required when `duration_type` is `end_date` |
+| `num_payments` | integer | Conditional | Required when `duration_type` is `num_payments` |
+
+**One-time success response:**
+```json
+{
+  "success": true,
+  "message": "Thank you for your donation!",
+  "data": {
+    "transactionId": "TXN_abc123",
+    "status": "CAPTURED",
+    "amount": 25.00,
+    "currency": "USD",
+    "donorName": "Jane Smith",
+    "donorEmail": "jane@example.com",
+    "timestamp": "2025-01-15 12:00:00"
+  }
+}
 ```
 
-Response (Error):
+**Recurring success response:**
+```json
+{
+  "success": true,
+  "message": "Recurring donation set up successfully!",
+  "data": {
+    "transactionId": "TXN_xyz789",
+    "cardBrandTransactionId": "MCT_abc123",
+    "status": "CAPTURED",
+    "amount": 10.00,
+    "currency": "USD",
+    "donorName": "Jane Smith",
+    "donorEmail": "jane@example.com",
+    "frequency": "monthly",
+    "startDate": "2025-02-01",
+    "durationType": "ongoing",
+    "timestamp": "2025-01-15 12:00:00"
+  }
+}
 ```
-API Error: [error message]
+
+**Error response:**
+```json
+{
+  "success": false,
+  "message": "Donation processing failed",
+  "error": {
+    "code": "GATEWAY_ERROR",
+    "details": "Transaction declined",
+    "timestamp": "2025-01-15T12:00:00.000Z"
+  }
+}
 ```
-or
+
+## Payment Flow
+
+1. The browser loads `index.html` and calls `POST /get-access-token` to initialize the GP Drop-In UI
+2. The donor enters card details; the Drop-In UI tokenizes them and returns a `payment_reference`
+3. The frontend submits the donation form to `POST /process-donation`
+4. `server.js` reads `payment_type` and routes to `processOneTime()` or `processRecurring()`
+5. The GP API SDK charges the token and returns a transaction response
+
+## Configuration
+
+Copy `.env.sample` to `.env`:
+
+```env
+GP_APP_ID=your-app-id
+GP_APP_KEY=your-app-key
+GP_APP_ENVIRONMENT=sandbox
 ```
-Error: [error message]
+
+| Variable | Required | Description |
+|---|---|---|
+| `GP_APP_ID` | Yes | GP API application ID |
+| `GP_APP_KEY` | Yes | GP API application key |
+| `GP_APP_ENVIRONMENT` | No | `sandbox` (default) or `production` |
+
+## Running with Docker
+
+```bash
+bash run.sh
 ```
 
 ## Security Considerations
 
-This example demonstrates basic implementation. For production use, consider:
-- Implementing additional input validation
-- Adding request rate limiting
-- Including security headers
-- Implementing proper logging
-- Adding payment fraud prevention measures
-- Using HTTPS in production
-- Configuring Cross-Origin Resource Sharing (CORS) appropriately
+- Never commit `.env` to version control
+- Do not log `payment_reference` tokens
+- Use HTTPS in production

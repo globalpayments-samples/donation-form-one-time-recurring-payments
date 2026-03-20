@@ -1,107 +1,171 @@
-# Java Card Payment Example
+# Java — Donation Form
 
-This example demonstrates card payment processing using Jakarta EE and the Global Payments SDK.
+One-time and recurring donation processing using Jakarta EE servlets and the Global Payments GP API SDK.
 
-## Requirements
+## Prerequisites
 
-- Java 11 or later
-- Maven
-- Global Payments account and API credentials
+| Runtime | Version | Build Tool |
+|---|---|---|
+| JDK | 23 | Maven 3.8+ |
+
+## Dependencies
+
+| Package | Version |
+|---|---|
+| `globalpayments-sdk` | 14.2.20 |
+| `dotenv-java` | 3.0.0 |
+| `jakarta.servlet-api` | 5.0.0 |
+
+## Quick Start
+
+1. Navigate to the `java` directory
+2. Copy `.env.sample` to `.env` and fill in your GP API credentials
+3. Build the project:
+   ```bash
+   mvn clean package
+   ```
+4. Start the server:
+   ```bash
+   mvn cargo:run
+   ```
+5. Open `http://localhost:8000`
 
 ## Project Structure
 
-- `src/main/java/com/globalpayments/example/ProcessPaymentServlet.java` - Main servlet handling payment processing
-- `src/main/webapp/index.html` - Client-side payment form
-- `src/main/webapp/WEB-INF/web.xml` - Web application configuration
-- `.env.sample` - Template for environment variables
-- `pom.xml` - Project dependencies and build configuration
-- `run.sh` - Convenience script to run the application
-
-## Setup
-
-1. Clone this repository
-2. Copy `.env.sample` to `.env`
-3. Update `.env` with your Global Payments credentials:
-   ```
-   PUBLIC_API_KEY=pk_test_xxx
-   SECRET_API_KEY=sk_test_xxx
-   ```
-4. Install dependencies:
-   ```bash
-   mvn clean install
-   ```
-5. Run the application:
-   ```bash
-   ./run.sh
-   ```
-   Or manually:
-   ```bash
-   mvn jetty:run
-   ```
-
-## Implementation Details
-
-### Servlet Configuration
-The application uses Jakarta EE servlets to:
-- Handle payment processing requests
-- Serve configuration data
-- Process form submissions
-
-### SDK Configuration
-Global Payments SDK configuration is handled in the servlet's init method:
-- Loads credentials from .env file
-- Sets up service URL for API communication
-- Configures developer identification
-
-### Payment Processing
-Payment processing flow:
-1. Client submits payment token and billing zip
-2. Server creates CreditCardData with token
-3. Creates Address with postal code
-4. Processes $10 USD charge
-5. Returns success/error response
-
-### Error Handling
-Implements comprehensive error handling:
-- Catches and processes API exceptions
-- Returns appropriate HTTP status codes
-- Provides meaningful error messages
+```
+java/
+├── src/
+│   └── main/
+│       ├── java/com/globalpayments/example/
+│       │   └── ProcessPaymentServlet.java  # Servlet handling both endpoints
+│       └── webapp/
+│           └── index.html                  # Donation form with GP Drop-In UI
+├── pom.xml            # Maven build + Cargo plugin for embedded Tomcat 10
+├── .env.sample        # Environment variable template
+├── Dockerfile
+└── run.sh
+```
 
 ## API Endpoints
 
-### GET /public-key
-Returns public API key for client-side SDK initialization.
+The servlet is mapped to both `/get-access-token` and `/process-donation` via `@WebServlet`.
 
-Response:
+### `POST /get-access-token`
+
+Generates a short-lived access token for the GP Drop-In UI. No request body required.
+
+**Response:**
 ```json
 {
-    "publicApiKey": "pk_test_xxx"
+  "success": true,
+  "token": "eyJhbGciOiJSUzI1NiIsInR5...",
+  "expiresIn": 600
 }
 ```
 
-### POST /process-payment
-Processes a payment using the provided token and billing information.
+### `POST /process-donation`
 
-Request Parameters:
-- `payment_token` (string, required) - Token from client-side SDK
-- `billing_zip` (string, required) - Billing postal code
+Processes a one-time donation or initiates a recurring donation.
 
-Response (Success):
-```
-Payment successful! Transaction ID: xxx
+**Request parameters:**
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `payment_type` | string | Yes | `"one-time"` or `"recurring"` |
+| `payment_reference` | string | Yes | Token from GP Drop-In UI |
+| `amount` | string/number | Yes | Donation amount (must be > 0) |
+| `currency` | string | No | ISO currency code (default: `"USD"`) |
+| `donor_name` | string | Yes | Full name of donor |
+| `donor_email` | string | Yes | Email address of donor |
+| `frequency` | string | Recurring only | `monthly`, `weekly`, `quarterly`, `annually` |
+| `start_date` | string | No | `YYYY-MM-DD` (default: today) |
+| `duration_type` | string | No | `ongoing`, `end_date`, `num_payments` (default: `ongoing`) |
+| `end_date` | string | Conditional | `YYYY-MM-DD` — required when `duration_type` is `end_date` |
+| `num_payments` | integer | Conditional | Required when `duration_type` is `num_payments` |
+
+**One-time success response:**
+```json
+{
+  "success": true,
+  "message": "Thank you for your donation!",
+  "data": {
+    "transactionId": "TXN_abc123",
+    "status": "CAPTURED",
+    "amount": 25.00,
+    "currency": "USD",
+    "donorName": "Jane Smith",
+    "donorEmail": "jane@example.com",
+    "timestamp": "2025-01-15 12:00:00"
+  }
+}
 ```
 
-Response (Error):
+**Recurring success response:**
+```json
+{
+  "success": true,
+  "message": "Recurring donation set up successfully!",
+  "data": {
+    "transactionId": "TXN_xyz789",
+    "cardBrandTransactionId": "MCT_abc123",
+    "status": "CAPTURED",
+    "amount": 10.00,
+    "currency": "USD",
+    "donorName": "Jane Smith",
+    "donorEmail": "jane@example.com",
+    "frequency": "monthly",
+    "startDate": "2025-02-01",
+    "durationType": "ongoing",
+    "timestamp": "2025-01-15 12:00:00"
+  }
+}
 ```
-Error: [error message]
+
+**Error response:**
+```json
+{
+  "success": false,
+  "message": "Donation processing failed",
+  "error": {
+    "code": "GATEWAY_ERROR",
+    "details": "Transaction declined"
+  }
+}
+```
+
+## Payment Flow
+
+1. The browser loads `index.html` and calls `POST /get-access-token` to initialize the GP Drop-In UI
+2. The donor enters card details; the Drop-In UI tokenizes them and returns a `payment_reference`
+3. The frontend submits the donation form to `POST /process-donation`
+4. `ProcessPaymentServlet.doPost()` reads `payment_type` from the JSON body and dispatches to `processOneTime()` or `processRecurring()`
+5. The GP API SDK charges the token and returns a transaction response
+6. The SDK is configured once in the servlet's `init()` method and reused across requests
+
+## Configuration
+
+Copy `.env.sample` to `.env`:
+
+```env
+GP_APP_ID=your-app-id
+GP_APP_KEY=your-app-key
+GP_APP_ENVIRONMENT=sandbox
+```
+
+| Variable | Required | Description |
+|---|---|---|
+| `GP_APP_ID` | Yes | GP API application ID |
+| `GP_APP_KEY` | Yes | GP API application key |
+| `GP_APP_ENVIRONMENT` | No | `sandbox` (default) or `production` |
+
+## Running with Docker
+
+```bash
+bash run.sh
 ```
 
 ## Security Considerations
 
-This example demonstrates basic implementation. For production use, consider:
-- Implementing additional input validation
-- Adding request rate limiting
-- Including security headers
-- Implementing proper logging
-- Adding payment fraud prevention measures
-- Configuring secure session management
+- Never commit `.env` to version control
+- Do not log `payment_reference` tokens
+- Use HTTPS in production

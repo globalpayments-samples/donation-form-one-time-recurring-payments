@@ -161,13 +161,13 @@ Each implementation reads credentials from a `.env` file. Copy `.env.sample` to 
 
 | Variable | Required | Description |
 |---|---|---|
-| `GP_APP_ID` | Yes | GP API application ID from developer.globalpay.com |
+| `GP_APP_ID` | Yes | GP API application ID from developer.globalpayments.com |
 | `GP_APP_KEY` | Yes | GP API application key |
 | `GP_APP_ENVIRONMENT` | No | `sandbox` (default) or `production` (PHP uses `GP_ENVIRONMENT`) |
 
 ## Prerequisites
 
-- Developer account and sandbox credentials at [developer.globalpay.com](https://developer.globalpay.com)
+- Developer account and sandbox credentials at [developer.globalpayments.com](https://developer.globalpayments.com)
 - Language runtime for your chosen implementation (see each subfolder's README)
 
 ## Security Considerations

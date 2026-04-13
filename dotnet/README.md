@@ -164,3 +164,24 @@ bash run.sh
 - Never commit `.env` to version control
 - Do not log `payment_reference` tokens
 - Use HTTPS in production
+
+---
+
+## Troubleshooting
+
+| Issue | Solution |
+|-------|----------|
+| `dotnet` command not found | Install .NET SDK 6.0+. Run `dotnet --version` to check |
+| Build fails | Run `dotnet restore` before `dotnet run` |
+| Port already in use | Set a different port in `launchSettings.json` or use `--urls` flag |
+| `.env` not loading | Verify `.env` file exists in the language directory (not project root) |
+
+---
+
+## Resources
+
+- [Parent Project README](../README.md)
+- [Global Payments Developer Portal](https://developer.globalpayments.com/)
+- [API Reference](https://developer.globalpayments.com/api/references-overview)
+- [.NET SDK](https://github.com/globalpayments/dotnet-sdk)
+- [Test Cards](https://developer.globalpayments.com/resources/test-cards)

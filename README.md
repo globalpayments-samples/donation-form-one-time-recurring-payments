@@ -11,6 +11,16 @@ Developers can learn how to:
 - Set up a recurring donation using `StoredCredential` with payer-initiated, first-sequence recurring type
 - Route both donation types through a single `POST /process-donation` endpoint
 
+## Features
+
+- **One-Time Donations** — Charge tokenized cards for immediate one-time payments
+- **Recurring Donations** — Set up recurring billing with `StoredCredential` metadata
+- **GP Drop-In UI** — PCI-compliant card data capture via pre-built payment form
+- **Flexible Scheduling** — Monthly, weekly, quarterly, and annual recurring frequencies
+- **Duration Options** — Ongoing, end-date, or fixed number of payments
+- **Multi-Language Support** — Identical implementation across PHP, Node.js, .NET, and Java
+- **Access Token Management** — Server-generated tokens for Drop-In UI initialization
+
 ## Available Implementations
 
 - [Node.js (Express)](./nodejs)
@@ -170,9 +180,31 @@ Each implementation reads credentials from a `.env` file. Copy `.env.sample` to 
 - Developer account and sandbox credentials at [developer.globalpayments.com](https://developer.globalpayments.com)
 - Language runtime for your chosen implementation (see each subfolder's README)
 
+## Test Cards
+
+| Brand | Number | CVV | Expiry |
+|-------|--------|-----|--------|
+| Visa | 4263 9826 4026 9299 | 123 | Any future |
+| Mastercard | 5425 2334 2424 1200 | 123 | Any future |
+
 ## Security Considerations
 
 - Store credentials in `.env` files and never commit them to version control
 - The `payment_reference` token is single-use and short-lived — do not log or store it
 - Use HTTPS in production
 - The Drop-In UI handles all raw card data; your server never sees card numbers, CVVs, or expiry dates
+
+## Resources
+
+- [Global Payments Developer Portal](https://developer.globalpayments.com/)
+- [API Reference](https://developer.globalpayments.com/api/references-overview)
+- [Test Cards](https://developer.globalpayments.com/resources/test-cards)
+- [Drop-In UI Guide](https://developer.globalpayments.com/docs/payments/online/drop-in-ui-guide)
+- [PHP SDK](https://github.com/globalpayments/php-sdk)
+- [Node.js SDK](https://github.com/globalpayments/node-sdk)
+- [Java SDK](https://github.com/globalpayments/java-sdk)
+- [.NET SDK](https://github.com/globalpayments/dotnet-sdk)
+
+## License
+
+MIT

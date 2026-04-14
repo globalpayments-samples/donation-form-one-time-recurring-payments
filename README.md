@@ -158,12 +158,12 @@ Processes a one-time donation or initiates a recurring donation setup.
 
 ## Platform-Specific Entry Points
 
-| Implementation | Entry File | Framework | Port |
-|---|---|---|---|
-| Node.js | `server.js` | Express 4.x | 8000 |
-| Java | `ProcessPaymentServlet.java` | Jakarta EE / Tomcat 10 | 8000 |
-| .NET | `Program.cs` | ASP.NET Minimal APIs / .NET 9 | 8000 |
-| PHP | `process-donation.php` | Built-in server | 8000 |
+| Implementation | Entry File | Framework |
+|---|---|---|
+| Node.js | `server.js` | Express 4.x |
+| Java | `ProcessPaymentServlet.java` | Jakarta EE / Tomcat 10 |
+| .NET | `Program.cs` | ASP.NET Minimal APIs / .NET 9 |
+| PHP | `process-donation.php` | Built-in server |
 
 ## Configuration
 
@@ -204,6 +204,16 @@ Each implementation reads credentials from a `.env` file. Copy `.env.sample` to 
 - [Node.js SDK](https://github.com/globalpayments/node-sdk)
 - [Java SDK](https://github.com/globalpayments/java-sdk)
 - [.NET SDK](https://github.com/globalpayments/dotnet-sdk)
+
+## Community
+
+- 🌐 **Developer Portal** — [developer.globalpayments.com](https://developer.globalpayments.com)
+- 💬 **Discord** — [Join the community](https://discord.gg/myER9G9qkc)
+- 📋 **GitHub Discussions** — [github.com/globalpayments-samples](https://github.com/globalpayments-samples)
+- 📧 **Newsletter** — [Subscribe](https://www.globalpayments.com/en-gb/modals/newsletter)
+- 💼 **LinkedIn** — [Global Payments for Developers](https://www.linkedin.com/showcase/global-payments-for-developers/posts/?feedView=all)
+
+Have a question or found a bug? [Open an issue](https://github.com/globalpayments-samples/donation-form-one-time-recurring-payments/issues) or reach out at [communityexperience@globalpay.com](mailto:communityexperience@globalpay.com).
 
 ## License
 

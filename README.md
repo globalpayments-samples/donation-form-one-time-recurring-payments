@@ -38,30 +38,110 @@ Phase 2 — Charge (server-side):
   Frontend → POST /process-donation → Backend → GP API SDK → GP API
 ```
 
-The Drop-In UI handles card data capture and returns a `payment_reference` token. The server then uses the GP API SDK to charge that token — either as a straight charge (one-time) or with `StoredCredential` metadata attached (recurring).
+### API Endpoints
 
-## Donation Types
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `POST` | `/get-access-token` | Generate scoped access token for Drop-In UI initialization |
+| `POST` | `/process-donation` | Process one-time or recurring donation |
+
+## 🚀 Quick Start
+
+### Prerequisites
+- Global Payments GP API account with sandbox credentials ([Sign up here](https://developer.globalpay.com/))
+- Development environment for your chosen language
+- Package manager (npm, composer, maven, or dotnet)
+
+### Setup Instructions
+
+1. **Clone the repository**
+   ```bash
+   git clone https://github.com/globalpayments-samples/donation-form-one-time-recurring-payments.git
+   cd donation-form-one-time-recurring-payments
+   ```
+
+2. **Choose your implementation**
+   ```bash
+   cd php  # or nodejs, dotnet, java
+   ```
+
+3. **Configure environment**
+   ```bash
+   cp .env.sample .env
+   # Edit .env with your GP API credentials:
+   # GP_APP_ID=your_gp_api_app_id_here
+   # GP_APP_KEY=your_gp_api_app_key_here
+   # GP_APP_ENVIRONMENT=sandbox
+   ```
+
+4. **Install dependencies and run**
+   ```bash
+   ./run.sh
+   ```
+
+   Or manually per language:
+   ```bash
+   # PHP
+   composer install && php -S localhost:8000
+
+   # Node.js
+   npm install && npm start
+
+   # .NET
+   dotnet restore && dotnet run
+
+   # Java
+   mvn clean compile cargo:run
+   ```
+
+5. **Access the application**
+   Open [http://localhost:8000](http://localhost:8000) in your browser
+
+## 🧪 Development & Testing
+
+### Test Cards (GP API Sandbox)
+
+| Card | Number | CVV | Expiry |
+|------|--------|-----|--------|
+| **Visa (Approved)** | 4263970000005262 | 123 | Any future date |
+| **Visa (Declined)** | 4000120000001154 | 123 | Any future date |
+
+### Donation Types
 
 | Type | SDK Call | StoredCredential |
-|---|---|---|
+|------|---------|------------------|
 | One-time | `card.charge().withCurrency().execute()` | Not required |
 | Recurring | `card.charge().withCurrency().withStoredCredential().execute()` | Payer-initiated, Recurring, First sequence |
 
-## Recurring Donation Parameters
+### Recurring Parameters
 
 | Field | Values | Description |
-|---|---|---|
+|-------|--------|-------------|
 | `frequency` | `monthly`, `weekly`, `quarterly`, `annually` | Billing cadence |
 | `start_date` | `YYYY-MM-DD` | First charge date (defaults to today) |
-| `duration_type` | `ongoing`, `end_date`, `num_payments` | How long the recurring series runs |
-| `end_date` | `YYYY-MM-DD` | Required only when `duration_type` is `end_date` |
-| `num_payments` | integer | Required only when `duration_type` is `num_payments` |
+| `duration_type` | `ongoing`, `end_date`, `num_payments` | How long the series runs |
+| `end_date` | `YYYY-MM-DD` | Required when `duration_type` is `end_date` |
+| `num_payments` | integer | Required when `duration_type` is `num_payments` |
 
-## API Endpoints
+## 💳 Payment Flow
 
-All implementations expose the same two endpoints.
+### One-Time Donation
+1. Donor fills in amount and card details via Drop-In UI
+2. Drop-In UI tokenizes card, returning a `payment_reference`
+3. Frontend sends token + amount to `POST /process-donation` with `payment_type: "one-time"`
+4. Backend charges the token via GP API SDK
+5. Success response with transaction ID and confirmation
 
-### `POST /get-access-token`
+### Recurring Donation
+1. Donor fills in amount, frequency, start date, and card details
+2. Drop-In UI tokenizes card, returning a `payment_reference`
+3. Frontend sends token + recurring params to `POST /process-donation` with `payment_type: "recurring"`
+4. Backend charges with `StoredCredential` (payer-initiated, first-sequence, recurring)
+5. Success response with transaction ID, `cardBrandTransactionId`, and schedule details
+
+## 🔧 API Reference
+
+### POST /get-access-token
 
 Generates a short-lived access token for initializing the GP Drop-In UI. No request body required.
 
@@ -74,9 +154,9 @@ Generates a short-lived access token for initializing the GP Drop-In UI. No requ
 }
 ```
 
-### `POST /process-donation`
+### POST /process-donation
 
-Processes a one-time donation or initiates a recurring donation setup.
+Processes a one-time or recurring donation.
 
 **One-time request:**
 ```json
@@ -87,23 +167,6 @@ Processes a one-time donation or initiates a recurring donation setup.
   "currency": "USD",
   "donor_name": "Jane Smith",
   "donor_email": "jane@example.com"
-}
-```
-
-**One-time success response:**
-```json
-{
-  "success": true,
-  "message": "Thank you for your donation!",
-  "data": {
-    "transactionId": "TXN_abc123",
-    "status": "CAPTURED",
-    "amount": 25.00,
-    "currency": "USD",
-    "donorName": "Jane Smith",
-    "donorEmail": "jane@example.com",
-    "timestamp": "2025-01-15 12:00:00"
-  }
 }
 ```
 
@@ -122,7 +185,7 @@ Processes a one-time donation or initiates a recurring donation setup.
 }
 ```
 
-**Recurring success response:**
+**Success response (recurring):**
 ```json
 {
   "success": true,
@@ -133,12 +196,9 @@ Processes a one-time donation or initiates a recurring donation setup.
     "status": "CAPTURED",
     "amount": 10.00,
     "currency": "USD",
-    "donorName": "Jane Smith",
-    "donorEmail": "jane@example.com",
     "frequency": "monthly",
     "startDate": "2025-02-01",
-    "durationType": "ongoing",
-    "timestamp": "2025-01-15 12:00:00"
+    "durationType": "ongoing"
   }
 }
 ```
@@ -150,8 +210,7 @@ Processes a one-time donation or initiates a recurring donation setup.
   "message": "Donation processing failed",
   "error": {
     "code": "GATEWAY_ERROR",
-    "details": "Transaction declined",
-    "timestamp": "2025-01-15T12:00:00.000Z"
+    "details": "Transaction declined"
   }
 }
 ```

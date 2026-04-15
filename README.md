@@ -1,54 +1,34 @@
 # Donation Form — One-Time & Recurring Payments
 
-A comprehensive multi-language demonstration of donation payment processing using the Global Payments GP API. This example showcases both one-time and recurring donation flows, featuring the GP Drop-In UI for secure client-side card tokenization and StoredCredential-based recurring billing setup across multiple programming languages.
+This project demonstrates how to build a donation form that processes one-time donations and sets up recurring donations using the Global Payments Drop-In UI and GP API SDK.
 
-## 🚀 Features
+## Overview
 
-### Core Payment Capabilities
-- **One-Time Donations** - Immediate card charges for single donations
-- **Recurring Donations** - Subscription-based recurring billing with StoredCredential metadata
-- **GP Drop-In UI Integration** - Secure client-side card tokenization (PCI-compliant)
-- **Flexible Scheduling** - Monthly, weekly, quarterly, and annual billing frequencies
-- **Duration Options** - Ongoing, end date, or fixed number of payments
+Developers can learn how to:
 
-### Development & Testing
-- **GP API Sandbox** - Full sandbox environment for development and testing
-- **Comprehensive Web Interface** - Unified donation form for both payment types
-- **Test Card Support** - Use GP API sandbox test cards for development
-- **Consistent API Design** - Identical endpoints and behavior across all implementations
+- Tokenize card data client-side using the GP Drop-In UI
+- Charge a tokenized card for an immediate one-time donation
+- Set up a recurring donation using `StoredCredential` with payer-initiated, first-sequence recurring type
+- Route both donation types through a single `POST /process-donation` endpoint
 
-### Technical Features
-- **Single Endpoint Processing** - Routes one-time and recurring donations through `/process-donation`
-- **Access Token Generation** - Backend generates scoped tokens for Drop-In UI initialization
-- **StoredCredential Support** - Payer-initiated, first-sequence recurring credential storage
-- **Environment Configuration** - Secure credential management with .env files
+## Features
 
-## 🌐 Available Implementations
+- **One-Time Donations** — Charge tokenized cards for immediate one-time payments
+- **Recurring Donations** — Set up recurring billing with `StoredCredential` metadata
+- **GP Drop-In UI** — PCI-compliant card data capture via pre-built payment form
+- **Flexible Scheduling** — Monthly, weekly, quarterly, and annual recurring frequencies
+- **Duration Options** — Ongoing, end-date, or fixed number of payments
+- **Multi-Language Support** — Identical implementation across PHP, Node.js, .NET, and Java
+- **Access Token Management** — Server-generated tokens for Drop-In UI initialization
 
-Each implementation provides identical functionality with language-specific best practices:
+## Available Implementations
 
-| Language | Framework | Requirements | Status |
-|----------|-----------|--------------|--------|
-| **[PHP](./php/)** - ([Preview](https://githubbox.com/globalpayments-samples/donation-form-one-time-recurring-payments/tree/main/php)) | Native PHP | PHP 7.4+, Composer | ✅ Complete |
-| **[Node.js](./nodejs/)** - ([Preview](https://githubbox.com/globalpayments-samples/donation-form-one-time-recurring-payments/tree/main/nodejs)) | Express.js | Node.js 18+, npm | ✅ Complete |
-| **[.NET](./dotnet/)** - ([Preview](https://githubbox.com/globalpayments-samples/donation-form-one-time-recurring-payments/tree/main/dotnet)) | ASP.NET Core | .NET 9.0+ | ✅ Complete |
-| **[Java](./java/)** - ([Preview](https://githubbox.com/globalpayments-samples/donation-form-one-time-recurring-payments/tree/main/java)) | Jakarta EE | Java 11+, Maven | ✅ Complete |
+- [Node.js (Express)](./nodejs)
+- [Java (Jakarta EE Servlet / Tomcat)](./java)
+- [.NET Core (ASP.NET Minimal APIs)](./dotnet)
+- [PHP](./php)
 
-## 🏗️ Architecture Overview
-
-### Frontend Architecture
-- **GP Drop-In UI** - Secure card data capture via Global Payments hosted UI component
-- **Unified Donation Form** - Single form supporting both one-time and recurring donation types
-- **Real-Time Validation** - Client-side form validation and donation type switching
-- **Responsive Design** - Clean interface with donation amount presets and custom input
-
-### Backend Architecture
-- **RESTful API Design** - Consistent endpoints across all implementations
-- **Token-Based Processing** - Server charges the `payment_reference` token from Drop-In UI
-- **StoredCredential Handling** - Attaches recurring metadata on first-sequence charges
-- **Error Handling** - Structured error responses with categorized error codes
-
-### How It Works
+## How It Works
 
 ```
 Phase 1 — Tokenization (client-side):
@@ -235,42 +215,65 @@ Processes a one-time or recurring donation.
 }
 ```
 
-## 🔧 Customization
+## Platform-Specific Entry Points
 
-### Extending Functionality
-Each implementation provides a solid foundation for:
-- **Custom Donation Amounts** - Modify presets and currency options
-- **Donor Receipts** - Add email confirmation and tax receipt generation
-- **Campaign Tracking** - Associate donations with fundraising campaigns
-- **Payment Method Management** - Store and reuse donor payment methods
-- **Reporting** - Add donation history and analytics dashboards
+| Implementation | Entry File | Framework |
+|---|---|---|
+| Node.js | `server.js` | Express 4.x |
+| Java | `ProcessPaymentServlet.java` | Jakarta EE / Tomcat 10 |
+| .NET | `Program.cs` | ASP.NET Minimal APIs / .NET 9 |
+| PHP | `process-donation.php` | Built-in server |
 
-### Production Considerations
-Before deploying to production:
-- **Security** - Store credentials in `.env`, never commit to version control
-- **HTTPS** - Always use HTTPS in production environments
-- **Token Handling** - The `payment_reference` is single-use and short-lived
-- **PCI Compliance** - Drop-In UI handles all card data; your server never sees raw card details
-- **Logging** - Add secure logging with PII protection
+## Configuration
 
-## 🤝 Contributing
+Each implementation reads credentials from a `.env` file. Copy `.env.sample` to `.env` and fill in your values.
 
-This project serves as a reference implementation for GP API donation form integration. When contributing:
-- Maintain consistency across all language implementations
-- Follow each language's best practices and conventions
-- Ensure thorough testing in the sandbox environment
-- Update documentation to reflect any changes
+| Variable | Required | Description |
+|---|---|---|
+| `GP_APP_ID` | Yes | GP API application ID from developer.globalpayments.com |
+| `GP_APP_KEY` | Yes | GP API application key |
+| `GP_APP_ENVIRONMENT` | No | `sandbox` (default) or `production` (PHP uses `GP_ENVIRONMENT`) |
 
-## 📄 License
+## Prerequisites
 
-MIT License — see [LICENSE](./LICENSE) for details.
+- Developer account and sandbox credentials at [developer.globalpayments.com](https://developer.globalpayments.com)
+- Language runtime for your chosen implementation (see each subfolder's README)
 
-## 🆘 Support
+## Test Cards
 
-- **Global Payments Developer Portal**: [https://developer.globalpay.com/](https://developer.globalpay.com/)
-- **GP API Reference**: [https://developer.globalpay.com/api](https://developer.globalpay.com/api)
-- **SDK Documentation**: Language-specific SDK guides in each implementation directory
+| Brand | Number | CVV | Expiry |
+|-------|--------|-----|--------|
+| Visa | 4263 9826 4026 9299 | 123 | Any future |
+| Mastercard | 5425 2334 2424 1200 | 123 | Any future |
 
----
+## Security Considerations
 
-**Note**: This is a demonstration application for development and testing purposes. For production use, implement additional security measures, error handling, and compliance requirements specific to your use case.
+- Store credentials in `.env` files and never commit them to version control
+- The `payment_reference` token is single-use and short-lived — do not log or store it
+- Use HTTPS in production
+- The Drop-In UI handles all raw card data; your server never sees card numbers, CVVs, or expiry dates
+
+## Resources
+
+- [Global Payments Developer Portal](https://developer.globalpayments.com/)
+- [API Reference](https://developer.globalpayments.com/api/references-overview)
+- [Test Cards](https://developer.globalpayments.com/resources/test-cards)
+- [Drop-In UI Guide](https://developer.globalpayments.com/docs/payments/online/drop-in-ui-guide)
+- [PHP SDK](https://github.com/globalpayments/php-sdk)
+- [Node.js SDK](https://github.com/globalpayments/node-sdk)
+- [Java SDK](https://github.com/globalpayments/java-sdk)
+- [.NET SDK](https://github.com/globalpayments/dotnet-sdk)
+
+## Community
+
+- 🌐 **Developer Portal** — [developer.globalpayments.com](https://developer.globalpayments.com)
+- 💬 **Discord** — [Join the community](https://discord.gg/myER9G9qkc)
+- 📋 **GitHub Discussions** — [github.com/orgs/globalpayments/discussions](https://github.com/orgs/globalpayments/discussions)
+- 📧 **Newsletter** — [Subscribe](https://www.globalpayments.com/en-gb/modals/newsletter)
+- 💼 **LinkedIn** — [Global Payments for Developers](https://www.linkedin.com/showcase/global-payments-for-developers/posts/?feedView=all)
+
+Have a question or found a bug? [Open an issue](https://github.com/globalpayments-samples/donation-form-one-time-recurring-payments/issues) or reach out at [communityexperience@globalpay.com](mailto:communityexperience@globalpay.com).
+
+## License
+
+MIT

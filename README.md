@@ -209,7 +209,7 @@ Each implementation reads credentials from a `.env` file. Copy `.env.sample` to 
 
 - 🌐 **Developer Portal** — [developer.globalpayments.com](https://developer.globalpayments.com)
 - 💬 **Discord** — [Join the community](https://discord.gg/myER9G9qkc)
-- 📋 **GitHub Discussions** — [github.com/globalpayments-samples](https://github.com/globalpayments-samples)
+- 📋 **GitHub Discussions** — [github.com/orgs/globalpayments/discussions](https://github.com/orgs/globalpayments/discussions)
 - 📧 **Newsletter** — [Subscribe](https://www.globalpayments.com/en-gb/modals/newsletter)
 - 💼 **LinkedIn** — [Global Payments for Developers](https://www.linkedin.com/showcase/global-payments-for-developers/posts/?feedView=all)
 

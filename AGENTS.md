@@ -7,7 +7,6 @@
 1. **Every implementation builds the Drop-In access token request by hand.** `nodejs/server.js`, `php/get-access-token.php`, `java/src/main/java/com/globalpayments/example/ProcessPaymentServlet.java`, and `dotnet/Program.cs` all post directly to `/ucp/accesstoken` with `app_id`, a random `nonce`, `secret = SHA-512(nonce + GP_APP_KEY)`, `grant_type = client_credentials`, `seconds_to_expire = 600`, `permissions = ["PMT_POST_Create_Single"]`, and `X-GP-Version: 2021-03-22`. If any of those fields drift, the browser never gets a usable Drop-In token.
 2. **`payment_type=recurring` is only the first recurring payment, not a scheduler.** `processRecurring()`, `ProcessRecurring()`, and the PHP recurring handler still call `charge()` immediately and only attach stored-credential metadata (`Payer`/`CardHolder`, `Recurring`, `First`). `frequency`, `start_date`, `end_date`, and `num_payments` are echoed back in the response; nothing is stored and no later rebill job exists.
 3. **The browser is hard-wired to sandbox.** Every active frontend copy calls `GlobalPayments.configure()` with `apiVersion: '2021-03-22'` and `env: 'sandbox'` in `initializePaymentForm()`. Switching only backend credentials to production leaves tokenization pointed at sandbox.
-4. **PHP splits environment selection across two variable names, and the sample file only shows one of them.** `php/get-access-token.php` reads `GP_ENVIRONMENT`, while `php/process-one-time.php` and `php/process-recurring.php` read `GP_APP_ENVIRONMENT`. `php/.env.sample` includes `GP_ENVIRONMENT` but not `GP_APP_ENVIRONMENT`, so PHP charges silently fall back to sandbox unless you add it yourself.
 
 ## Repository Structure
 
@@ -25,7 +24,7 @@
 - [`php/get-access-token.php`](php/get-access-token.php) — direct UCP access-token request builder using cURL.
 - [`php/index.html`](php/index.html) — active frontend; `initializePaymentForm()`, `cardForm.on('token-success', ...)`, and `buildSuccessHtml()` post to the PHP endpoints.
 - [`php/config.php`](php/config.php) — legacy config endpoint exposing `PUBLIC_API_KEY`; used by stale Docker health checks, not by the donation flow.
-- [`php/.env.sample`](php/.env.sample) — sample env file; includes `GP_ENVIRONMENT` and `PUBLIC_API_KEY`, but omits `GP_APP_ENVIRONMENT` even though the charge handlers read it.
+- [`php/.env.sample`](php/.env.sample) — sample env file; includes `GP_ENVIRONMENT` and `PUBLIC_API_KEY`.
 - Storage layer / mock helpers — none beyond the frontend test-card picker.
 
 ### Java (Jakarta Servlet / embedded Tomcat)
@@ -63,13 +62,13 @@ All active implementations expose the same donation behavior. PHP uses file path
 ```bash
 GP_APP_ID=...            # Required everywhere; GP API app ID.
 GP_APP_KEY=...           # Required everywhere; GP API app key and token-secret input.
-GP_APP_ENVIRONMENT=...   # Node.js, Java, .NET, and PHP charge handlers; defaults to sandbox.
-GP_ENVIRONMENT=...       # PHP get-access-token.php only; selects sandbox vs production UCP endpoint.
+GP_APP_ENVIRONMENT=...   # Node.js, Java, and .NET charge handlers; defaults to sandbox.
+GP_ENVIRONMENT=...       # PHP only (all PHP handlers); selects sandbox vs production endpoint.
 PORT=8000                # Node.js and .NET read this directly; php/run.sh also honors it. Not listed in any .env.sample.
 PUBLIC_API_KEY=...       # PHP config.php only; not used by the donation form flow.
 ```
 
-`nodejs/.env.sample`, `java/.env.sample`, and `dotnet/.env.sample` stay in sync. `php/.env.sample` intentionally diverges because it still supports `config.php`, but it is missing `GP_APP_ENVIRONMENT`.
+`nodejs/.env.sample`, `java/.env.sample`, and `dotnet/.env.sample` stay in sync. `php/.env.sample` intentionally diverges because it still supports `config.php` and uses `GP_ENVIRONMENT` for all PHP handlers rather than `GP_APP_ENVIRONMENT`.
 
 ## Test Cards / Sandbox Credentials
 

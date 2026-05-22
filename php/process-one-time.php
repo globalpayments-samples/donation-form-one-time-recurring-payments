@@ -21,7 +21,7 @@ function configureSdk(): void
     $config = new GpApiConfig();
     $config->appId = $_ENV['GP_APP_ID'];
     $config->appKey = $_ENV['GP_APP_KEY'];
-    $config->environment = ($_ENV['GP_APP_ENVIRONMENT'] ?? 'sandbox') === 'production'
+    $config->environment = ($_ENV['GP_ENVIRONMENT'] ?? 'sandbox') === 'production'
         ? Environment::PRODUCTION
         : Environment::TEST;
     $config->channel = Channel::CardNotPresent;
@@ -37,7 +37,7 @@ error_log('=== GP API Configuration Debug ===');
 error_log('APP_ID loaded: ' . (isset($_ENV['GP_APP_ID']) ? 'YES' : 'NO'));
 error_log('APP_KEY loaded: ' . (isset($_ENV['GP_APP_KEY']) ? 'YES' : 'NO'));
 error_log('APP_KEY length: ' . (isset($_ENV['GP_APP_KEY']) ? strlen($_ENV['GP_APP_KEY']) : 0));
-error_log('Environment: ' . ($_ENV['GP_APP_ENVIRONMENT'] ?? 'NOT_SET'));
+error_log('Environment: ' . ($_ENV['GP_ENVIRONMENT'] ?? 'NOT_SET'));
 error_log('==================================');
 
 try {

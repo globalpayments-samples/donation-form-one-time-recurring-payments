@@ -82,7 +82,7 @@ Phase 2 — Charge (server-side):
    Or manually per language:
    ```bash
    # PHP
-   composer install && php -S localhost:8000
+   ./run.sh
 
    # Node.js
    npm install && npm start

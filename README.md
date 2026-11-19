@@ -221,7 +221,7 @@ Processes a one-time or recurring donation.
 |---|---|---|
 | Node.js | `server.js` | Express 4.x |
 | Java | `ProcessPaymentServlet.java` | Jakarta EE / Tomcat 10 |
-| .NET | `Program.cs` | ASP.NET Minimal APIs / .NET 9 |
+| .NET | `Program.cs` | ASP.NET Minimal APIs / .NET 10 |
 | PHP | `process-donation.php` | Built-in server |
 
 ## Configuration

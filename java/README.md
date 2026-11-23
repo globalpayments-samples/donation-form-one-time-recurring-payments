@@ -6,7 +6,7 @@ One-time and recurring donation processing using Jakarta EE servlets and the Glo
 
 | Runtime | Version | Build Tool |
 |---|---|---|
-| JDK | 23 | Maven 3.8+ |
+| JDK | 21 | Maven 3.8+ |
 
 ## Dependencies
 
@@ -177,7 +177,7 @@ bash run.sh
 | Issue | Solution |
 |-------|----------|
 | `mvn` command not found | Install Maven 3.6+. Run `mvn -v` to check version |
-| Build fails | Ensure Java 11+ is installed. Run `java -version` to check |
+| Build fails | Ensure Java 21+ is installed. Run `java -version` to check |
 | Port already in use | Stop other services on port 8000, or modify `pom.xml` cargo config |
 | `.env` not loading | Verify `.env` file exists in the language directory (not project root) |
 

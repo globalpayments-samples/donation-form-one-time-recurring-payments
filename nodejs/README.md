@@ -6,7 +6,7 @@ One-time and recurring donation processing using Express.js and the Global Payme
 
 | Runtime | Version | Package Manager |
 |---|---|---|
-| Node.js | 18+ | npm |
+| Node.js | 24+ | npm |
 
 ## Dependencies
 
@@ -170,7 +170,7 @@ bash run.sh
 
 | Issue | Solution |
 |-------|----------|
-| `npm install` fails | Ensure Node.js 18+ is installed. Run `node -v` to check version |
+| `npm install` fails | Ensure Node.js 24+ is installed. Run `node -v` to check version |
 | Port already in use | Set `PORT=3001` in `.env` or kill existing process on port 8000 |
 | `.env` not loading | Verify `.env` file exists in the language directory (not project root) |
 | Module not found errors | Delete `node_modules/` and run `npm install` again |

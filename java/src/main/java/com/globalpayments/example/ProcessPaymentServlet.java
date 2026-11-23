@@ -12,6 +12,8 @@ import com.global.api.entities.exceptions.ApiException;
 import com.global.api.entities.exceptions.GatewayException;
 import com.global.api.paymentMethods.CreditCardData;
 import com.global.api.serviceConfigs.GpApiConfig;
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import io.github.cdimascio.dotenv.Dotenv;
@@ -41,6 +43,22 @@ public class ProcessPaymentServlet extends HttpServlet {
     private static final long serialVersionUID = 1L;
     private final Dotenv dotenv = Dotenv.load();
     private static final DateTimeFormatter TIMESTAMP_FMT = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+    private static final Gson GSON = new GsonBuilder().serializeNulls().create();
+
+    /** A request problem whose details are safe to send back to the browser. */
+    private static class DonationException extends Exception {
+        private static final long serialVersionUID = 1L;
+        private final String details;
+
+        DonationException(String details) {
+            super(details);
+            this.details = details;
+        }
+
+        String getDetails() {
+            return details;
+        }
+    }
 
     @Override
     public void init() throws ServletException {
@@ -79,7 +97,7 @@ public class ProcessPaymentServlet extends HttpServlet {
             String envName = dotenv.get("GP_APP_ENVIRONMENT", "sandbox");
 
             if (appId == null || appKey == null || appId.isEmpty() || appKey.isEmpty()) {
-                throw new Exception("Missing required credentials: GP_APP_ID and GP_APP_KEY");
+                throw new DonationException("Missing required credentials: GP_APP_ID and GP_APP_KEY");
             }
 
             // Generate nonce: 16 random bytes as lowercase hex
@@ -122,26 +140,35 @@ public class ProcessPaymentServlet extends HttpServlet {
                     : responseData.has("message")
                         ? responseData.get("message").getAsString()
                         : "Failed to generate access token";
-                throw new Exception(errorMessage);
+                throw new DonationException(errorMessage);
             }
 
             int expiresIn = responseData.has("seconds_to_expire")
                 ? responseData.get("seconds_to_expire").getAsInt()
                 : 600;
 
-            response.getWriter().write(String.format(
-                "{\"success\":true,\"token\":\"%s\",\"expiresIn\":%d}",
-                responseData.get("token").getAsString(),
-                expiresIn
-            ));
+            JsonObject result = new JsonObject();
+            result.addProperty("success", true);
+            result.addProperty("token", responseData.get("token").getAsString());
+            result.addProperty("expiresIn", expiresIn);
+            writeJson(response, HttpServletResponse.SC_OK, result);
 
+        } catch (DonationException e) {
+            writeJson(response, HttpServletResponse.SC_INTERNAL_SERVER_ERROR,
+                tokenError(e.getDetails()));
         } catch (Exception e) {
-            response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
-            response.getWriter().write(String.format(
-                "{\"success\":false,\"message\":\"Error generating access token\",\"error\":\"%s\"}",
-                escapeJson(e.getMessage())
-            ));
+            log("Error generating access token", e);
+            writeJson(response, HttpServletResponse.SC_INTERNAL_SERVER_ERROR,
+                tokenError("An unexpected error occurred"));
         }
+    }
+
+    private JsonObject tokenError(String details) {
+        JsonObject result = new JsonObject();
+        result.addProperty("success", false);
+        result.addProperty("message", "Error generating access token");
+        result.addProperty("error", details);
+        return result;
     }
 
     private void handleProcessDonation(HttpServletRequest request, HttpServletResponse response)
@@ -158,11 +185,8 @@ public class ProcessPaymentServlet extends HttpServlet {
             JsonObject body = JsonParser.parseString(sb.toString()).getAsJsonObject();
 
             if (!body.has("payment_type") || body.get("payment_type").getAsString().isEmpty()) {
-                response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
-                response.getWriter().write(
-                    "{\"success\":false,\"message\":\"Missing payment_type\"," +
-                    "\"error\":\"payment_type must be one-time or recurring\"}"
-                );
+                writeJson(response, HttpServletResponse.SC_BAD_REQUEST,
+                    simpleError("Missing payment_type", "payment_type must be one-time or recurring"));
                 return;
             }
 
@@ -173,20 +197,14 @@ public class ProcessPaymentServlet extends HttpServlet {
             } else if ("recurring".equals(paymentType)) {
                 processRecurring(body, response);
             } else {
-                response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
-                response.getWriter().write(
-                    "{\"success\":false,\"message\":\"Invalid payment_type\"," +
-                    "\"error\":\"payment_type must be one-time or recurring\"}"
-                );
+                writeJson(response, HttpServletResponse.SC_BAD_REQUEST,
+                    simpleError("Invalid payment_type", "payment_type must be one-time or recurring"));
             }
 
         } catch (Exception e) {
-            response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
-            response.getWriter().write(String.format(
-                "{\"success\":false,\"message\":\"Server error\"," +
-                "\"error\":{\"code\":\"SERVER_ERROR\",\"details\":\"%s\"}}",
-                escapeJson(e.getMessage())
-            ));
+            log("Error processing donation request", e);
+            writeJson(response, HttpServletResponse.SC_INTERNAL_SERVER_ERROR,
+                errorResponse("Server error", "SERVER_ERROR", "An unexpected error occurred"));
         }
     }
 
@@ -200,13 +218,13 @@ public class ProcessPaymentServlet extends HttpServlet {
             BigDecimal amount = getAmount(body);
 
             if (paymentReference == null || paymentReference.isEmpty())
-                throw new Exception("Missing payment reference");
+                throw new DonationException("Missing payment reference");
             if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0)
-                throw new Exception("Invalid amount");
+                throw new DonationException("Invalid amount");
             if (donorName == null || donorName.isEmpty())
-                throw new Exception("Missing donor name");
+                throw new DonationException("Missing donor name");
             if (donorEmail == null || donorEmail.isEmpty())
-                throw new Exception("Missing donor email");
+                throw new DonationException("Missing donor email");
 
             CreditCardData card = new CreditCardData();
             card.setToken(paymentReference);
@@ -217,43 +235,37 @@ public class ProcessPaymentServlet extends HttpServlet {
 
             if ("00".equals(transaction.getResponseCode()) || "SUCCESS".equals(transaction.getResponseCode())) {
                 String timestamp = LocalDateTime.now().format(TIMESTAMP_FMT);
-                response.getWriter().write(String.format(
-                    "{\"success\":true,\"message\":\"Thank you for your donation!\"," +
-                    "\"data\":{\"transactionId\":\"%s\",\"status\":\"%s\",\"amount\":%s," +
-                    "\"currency\":\"%s\",\"donorName\":\"%s\",\"donorEmail\":\"%s\",\"timestamp\":\"%s\"}}",
-                    transaction.getTransactionId(),
-                    escapeJson(transaction.getResponseMessage()),
-                    amount.toPlainString(),
-                    currency,
-                    escapeJson(donorName),
-                    escapeJson(donorEmail),
-                    timestamp
-                ));
+                JsonObject data = new JsonObject();
+                data.addProperty("transactionId", transaction.getTransactionId());
+                data.addProperty("status", nullToEmpty(transaction.getResponseMessage()));
+                data.addProperty("amount", new BigDecimal(amount.toPlainString()));
+                data.addProperty("currency", currency);
+                data.addProperty("donorName", donorName);
+                data.addProperty("donorEmail", donorEmail);
+                data.addProperty("timestamp", timestamp);
+
+                JsonObject result = new JsonObject();
+                result.addProperty("success", true);
+                result.addProperty("message", "Thank you for your donation!");
+                result.add("data", data);
+                writeJson(response, HttpServletResponse.SC_OK, result);
             } else {
-                throw new Exception("Transaction declined: " + transaction.getResponseMessage());
+                throw new DonationException("Transaction declined: " + transaction.getResponseMessage());
             }
 
+        } catch (DonationException e) {
+            writeJson(response, HttpServletResponse.SC_INTERNAL_SERVER_ERROR,
+                errorResponse("Donation processing failed", "SERVER_ERROR", e.getDetails()));
         } catch (GatewayException e) {
-            response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
-            response.getWriter().write(String.format(
-                "{\"success\":false,\"message\":\"Donation processing failed\"," +
-                "\"error\":{\"code\":\"GATEWAY_ERROR\",\"details\":\"%s\"}}",
-                escapeJson(e.getMessage())
-            ));
+            writeJson(response, HttpServletResponse.SC_BAD_REQUEST,
+                errorResponse("Donation processing failed", "GATEWAY_ERROR", e.getMessage()));
         } catch (ApiException e) {
-            response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
-            response.getWriter().write(String.format(
-                "{\"success\":false,\"message\":\"API error\"," +
-                "\"error\":{\"code\":\"API_ERROR\",\"details\":\"%s\"}}",
-                escapeJson(e.getMessage())
-            ));
+            writeJson(response, HttpServletResponse.SC_BAD_REQUEST,
+                errorResponse("API error", "API_ERROR", e.getMessage()));
         } catch (Exception e) {
-            response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
-            response.getWriter().write(String.format(
-                "{\"success\":false,\"message\":\"Donation processing failed\"," +
-                "\"error\":{\"code\":\"SERVER_ERROR\",\"details\":\"%s\"}}",
-                escapeJson(e.getMessage())
-            ));
+            log("Donation processing failed", e);
+            writeJson(response, HttpServletResponse.SC_INTERNAL_SERVER_ERROR,
+                errorResponse("Donation processing failed", "SERVER_ERROR", "An unexpected error occurred"));
         }
     }
 
@@ -277,15 +289,15 @@ public class ProcessPaymentServlet extends HttpServlet {
             BigDecimal amount = getAmount(body);
 
             if (paymentReference == null || paymentReference.isEmpty())
-                throw new Exception("Missing payment reference");
+                throw new DonationException("Missing payment reference");
             if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0)
-                throw new Exception("Invalid amount");
+                throw new DonationException("Invalid amount");
             if (donorName == null || donorName.isEmpty())
-                throw new Exception("Missing donor name");
+                throw new DonationException("Missing donor name");
             if (donorEmail == null || donorEmail.isEmpty())
-                throw new Exception("Missing donor email");
+                throw new DonationException("Missing donor email");
             if (frequency == null || frequency.isEmpty())
-                throw new Exception("Missing frequency for recurring donation");
+                throw new DonationException("Missing frequency for recurring donation");
 
             CreditCardData card = new CreditCardData();
             card.setToken(paymentReference);
@@ -302,65 +314,49 @@ public class ProcessPaymentServlet extends HttpServlet {
 
             if ("00".equals(transaction.getResponseCode()) || "SUCCESS".equals(transaction.getResponseCode())) {
                 String timestamp = LocalDateTime.now().format(TIMESTAMP_FMT);
-                String cardBrandTxId = transaction.getCardBrandTransactionId() != null
-                    ? "\"" + transaction.getCardBrandTransactionId() + "\""
-                    : "null";
 
-                StringBuilder dataJson = new StringBuilder();
-                dataJson.append(String.format(
-                    "{\"transactionId\":\"%s\",\"cardBrandTransactionId\":%s,\"status\":\"%s\"," +
-                    "\"amount\":%s,\"currency\":\"%s\",\"donorName\":\"%s\",\"donorEmail\":\"%s\"," +
-                    "\"frequency\":\"%s\",\"startDate\":\"%s\",\"durationType\":\"%s\",\"timestamp\":\"%s\"",
-                    transaction.getTransactionId(),
-                    cardBrandTxId,
-                    escapeJson(transaction.getResponseMessage()),
-                    amount.toPlainString(),
-                    currency,
-                    escapeJson(donorName),
-                    escapeJson(donorEmail),
-                    frequency,
-                    startDate,
-                    durationType,
-                    timestamp
-                ));
+                JsonObject data = new JsonObject();
+                data.addProperty("transactionId", transaction.getTransactionId());
+                data.addProperty("cardBrandTransactionId", transaction.getCardBrandTransactionId());
+                data.addProperty("status", nullToEmpty(transaction.getResponseMessage()));
+                data.addProperty("amount", new BigDecimal(amount.toPlainString()));
+                data.addProperty("currency", currency);
+                data.addProperty("donorName", donorName);
+                data.addProperty("donorEmail", donorEmail);
+                data.addProperty("frequency", frequency);
+                data.addProperty("startDate", startDate);
+                data.addProperty("durationType", durationType);
+                data.addProperty("timestamp", timestamp);
 
                 if ("end_date".equals(durationType) && endDate != null) {
-                    dataJson.append(String.format(",\"endDate\":\"%s\"", endDate));
+                    data.addProperty("endDate", endDate);
                 }
                 if ("num_payments".equals(durationType) && numPayments != null) {
-                    dataJson.append(String.format(",\"numPayments\":%d", numPayments));
+                    data.addProperty("numPayments", numPayments);
                 }
-                dataJson.append("}");
 
-                response.getWriter().write(String.format(
-                    "{\"success\":true,\"message\":\"Recurring donation set up successfully!\",\"data\":%s}",
-                    dataJson
-                ));
+                JsonObject result = new JsonObject();
+                result.addProperty("success", true);
+                result.addProperty("message", "Recurring donation set up successfully!");
+                result.add("data", data);
+                writeJson(response, HttpServletResponse.SC_OK, result);
             } else {
-                throw new Exception("Transaction declined: " + transaction.getResponseMessage());
+                throw new DonationException("Transaction declined: " + transaction.getResponseMessage());
             }
 
+        } catch (DonationException e) {
+            writeJson(response, HttpServletResponse.SC_INTERNAL_SERVER_ERROR,
+                errorResponse("Recurring donation setup failed", "SERVER_ERROR", e.getDetails()));
         } catch (GatewayException e) {
-            response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
-            response.getWriter().write(String.format(
-                "{\"success\":false,\"message\":\"Recurring donation setup failed\"," +
-                "\"error\":{\"code\":\"GATEWAY_ERROR\",\"details\":\"%s\"}}",
-                escapeJson(e.getMessage())
-            ));
+            writeJson(response, HttpServletResponse.SC_BAD_REQUEST,
+                errorResponse("Recurring donation setup failed", "GATEWAY_ERROR", e.getMessage()));
         } catch (ApiException e) {
-            response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
-            response.getWriter().write(String.format(
-                "{\"success\":false,\"message\":\"API error\"," +
-                "\"error\":{\"code\":\"API_ERROR\",\"details\":\"%s\"}}",
-                escapeJson(e.getMessage())
-            ));
+            writeJson(response, HttpServletResponse.SC_BAD_REQUEST,
+                errorResponse("API error", "API_ERROR", e.getMessage()));
         } catch (Exception e) {
-            response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
-            response.getWriter().write(String.format(
-                "{\"success\":false,\"message\":\"Recurring donation setup failed\"," +
-                "\"error\":{\"code\":\"SERVER_ERROR\",\"details\":\"%s\"}}",
-                escapeJson(e.getMessage())
-            ));
+            log("Recurring donation setup failed", e);
+            writeJson(response, HttpServletResponse.SC_INTERNAL_SERVER_ERROR,
+                errorResponse("Recurring donation setup failed", "SERVER_ERROR", "An unexpected error occurred"));
         }
     }
 
@@ -377,11 +373,35 @@ public class ProcessPaymentServlet extends HttpServlet {
         }
     }
 
-    private String escapeJson(String s) {
-        if (s == null) return "";
-        return s.replace("\\", "\\\\")
-                .replace("\"", "\\\"")
-                .replace("\n", "\\n")
-                .replace("\r", "\\r");
+    private String nullToEmpty(String s) {
+        return s == null ? "" : s;
+    }
+
+    private JsonObject simpleError(String message, String error) {
+        JsonObject result = new JsonObject();
+        result.addProperty("success", false);
+        result.addProperty("message", message);
+        result.addProperty("error", error);
+        return result;
+    }
+
+    private JsonObject errorResponse(String message, String code, String details) {
+        JsonObject error = new JsonObject();
+        error.addProperty("code", code);
+        error.addProperty("details", details);
+
+        JsonObject result = new JsonObject();
+        result.addProperty("success", false);
+        result.addProperty("message", message);
+        result.add("error", error);
+        return result;
+    }
+
+    /** Writes a JSON body. Gson escapes HTML characters, so echoed values can't become markup. */
+    private void writeJson(HttpServletResponse response, int status, JsonObject body) throws IOException {
+        response.setStatus(status);
+        response.setContentType("application/json");
+        response.setCharacterEncoding("UTF-8");
+        response.getWriter().write(GSON.toJson(body));
     }
 }

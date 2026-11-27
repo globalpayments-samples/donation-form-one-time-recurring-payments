@@ -332,7 +332,8 @@
                     if (data.success) {
                         showResult('success', buildSuccessHtml(paymentType, data.data));
                     } else {
-                        showResult('error', 'Donation failed: ' + (data.error || data.message));
+                        const reason = (data.error && data.error.details) || data.error || data.message;
+                        showResult('error', 'Donation failed: ' + escHtml(String(reason)));
                     }
                 } catch (err) {
                     showResult('error', 'Error submitting donation: ' + err.message);

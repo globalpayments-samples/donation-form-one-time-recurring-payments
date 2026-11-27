@@ -333,7 +333,7 @@
                         showResult('success', buildSuccessHtml(paymentType, data.data), true);
                     } else {
                         const reason = (data.error && data.error.details) || data.error || data.message;
-                        showResult('error', 'Donation failed: ' + escHtml(String(reason)));
+                        showResult('error', 'Donation failed: ' + String(reason));
                     }
                 } catch (err) {
                     showResult('error', 'Error submitting donation: ' + err.message);

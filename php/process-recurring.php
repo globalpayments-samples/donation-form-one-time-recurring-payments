@@ -87,6 +87,7 @@ try {
     $response = $card->charge($amount)
         ->withCurrency($currency)
         ->withStoredCredential($storedCredential)
+        ->withRequestMultiUseToken(true)
         ->execute();
 
     if ($response->responseCode === '00' || $response->responseCode === 'SUCCESS') {
@@ -95,6 +96,7 @@ try {
             'message' => 'Recurring donation set up successfully!',
             'data' => [
                 'transactionId' => $response->transactionId,
+                'paymentMethodId' => $response->token ?? null,
                 'cardBrandTransactionId' => $response->cardBrandTransactionId ?? null,
                 'status' => $response->responseMessage,
                 'amount' => $amount,

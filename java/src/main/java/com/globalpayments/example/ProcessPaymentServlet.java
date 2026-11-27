@@ -310,6 +310,7 @@ public class ProcessPaymentServlet extends HttpServlet {
             Transaction transaction = card.charge(amount)
                 .withCurrency(currency)
                 .withStoredCredential(storedCredential)
+                .withRequestMultiUseToken(true)
                 .execute();
 
             if ("00".equals(transaction.getResponseCode()) || "SUCCESS".equals(transaction.getResponseCode())) {
@@ -317,6 +318,7 @@ public class ProcessPaymentServlet extends HttpServlet {
 
                 JsonObject data = new JsonObject();
                 data.addProperty("transactionId", transaction.getTransactionId());
+                data.addProperty("paymentMethodId", transaction.getToken());
                 data.addProperty("cardBrandTransactionId", transaction.getCardBrandTransactionId());
                 data.addProperty("status", nullToEmpty(transaction.getResponseMessage()));
                 data.addProperty("amount", new BigDecimal(amount.toPlainString()));

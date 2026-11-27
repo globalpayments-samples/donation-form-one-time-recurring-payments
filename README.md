@@ -111,7 +111,7 @@ Phase 2 — Charge (server-side):
 | Type | SDK Call | StoredCredential |
 |------|---------|------------------|
 | One-time | `card.charge().withCurrency().execute()` | Not required |
-| Recurring | `card.charge().withCurrency().withStoredCredential().execute()` | Payer-initiated, Recurring, First sequence |
+| Recurring | `card.charge().withCurrency().withStoredCredential().withRequestMultiUseToken(true).execute()` | Payer-initiated, Recurring, First sequence |
 
 ### Recurring Parameters
 
@@ -136,8 +136,8 @@ Phase 2 — Charge (server-side):
 1. Donor fills in amount, frequency, start date, and card details
 2. Drop-In UI tokenizes card, returning a `payment_reference`
 3. Frontend sends token + recurring params to `POST /process-donation` with `payment_type: "recurring"`
-4. Backend charges with `StoredCredential` (payer-initiated, first-sequence, recurring)
-5. Success response with transaction ID, `cardBrandTransactionId`, and schedule details
+4. Backend charges with `StoredCredential` (payer-initiated, first-sequence, recurring) and asks GP API to store the card
+5. Success response with transaction ID, the stored card as `paymentMethodId`, `cardBrandTransactionId`, and schedule details. Keep `paymentMethodId` and `cardBrandTransactionId` to charge the next donations; this sample does not schedule them
 
 ## 🔧 API Reference
 
@@ -192,6 +192,7 @@ Processes a one-time or recurring donation.
   "message": "Recurring donation set up successfully!",
   "data": {
     "transactionId": "TXN_xyz789",
+    "paymentMethodId": "PMT_0e09083c-fab5-4929-862a-c2acb989f48a",
     "cardBrandTransactionId": "MCT_abc123",
     "status": "CAPTURED",
     "amount": 10.00,

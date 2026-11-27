@@ -212,11 +212,13 @@ async function processRecurring(req, res) {
         const response = await card.charge(parseFloat(amount))
             .withCurrency(currency)
             .withStoredCredentials(storedCredential)
+            .withRequestMultiUseToken(true)
             .execute();
 
         if (response.responseCode === '00' || response.responseCode === 'SUCCESS') {
             const data = {
                 transactionId: response.transactionId,
+                paymentMethodId: response.token || null,
                 cardBrandTransactionId: response.cardBrandTransactionId || null,
                 status: response.responseMessage,
                 amount: parseFloat(amount),

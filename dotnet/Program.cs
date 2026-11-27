@@ -268,6 +268,7 @@ public class Program
             var response = card.Charge(amount)
                 .WithCurrency(currency)
                 .WithStoredCredential(storedCredential)
+                .WithRequestMultiUseToken(true)
                 .Execute();
 
             if (response.ResponseCode == "00" || response.ResponseCode == "SUCCESS")
@@ -279,6 +280,7 @@ public class Program
                     data = new
                     {
                         transactionId = response.TransactionId,
+                        paymentMethodId = response.Token,
                         cardBrandTransactionId = response.CardBrandTransactionId,
                         status = response.ResponseMessage,
                         amount = (double)amount,

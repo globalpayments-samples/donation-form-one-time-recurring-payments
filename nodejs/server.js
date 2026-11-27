@@ -13,7 +13,9 @@ import {
     Channel,
     StoredCredentialInitiator,
     StoredCredentialType,
-    StoredCredentialSequence
+    StoredCredentialSequence,
+    ApiError,
+    GatewayError
 } from 'globalpayments-api';
 
 dotenv.config();
@@ -161,14 +163,13 @@ async function processOneTime(req, res) {
         }
 
     } catch (error) {
-        const name = error.constructor.name;
-        if (name === 'GatewayException') {
+        if (error instanceof GatewayError) {
             return res.status(400).json({
                 success: false,
                 message: 'Donation processing failed',
                 error: { code: 'GATEWAY_ERROR', details: error.message, timestamp: new Date().toISOString() }
             });
-        } else if (name === 'ApiException') {
+        } else if (error instanceof ApiError) {
             return res.status(400).json({
                 success: false,
                 message: 'API error',
@@ -242,14 +243,13 @@ async function processRecurring(req, res) {
         }
 
     } catch (error) {
-        const name = error.constructor.name;
-        if (name === 'GatewayException') {
+        if (error instanceof GatewayError) {
             return res.status(400).json({
                 success: false,
                 message: 'Recurring donation setup failed',
                 error: { code: 'GATEWAY_ERROR', details: error.message, timestamp: new Date().toISOString() }
             });
-        } else if (name === 'ApiException') {
+        } else if (error instanceof ApiError) {
             return res.status(400).json({
                 success: false,
                 message: 'API error',
@@ -264,6 +264,14 @@ async function processRecurring(req, res) {
         }
     }
 }
+
+// Answer a malformed JSON body with JSON instead of the default HTML error page
+app.use((err, req, res, next) => {
+    if (err.type === 'entity.parse.failed') {
+        return res.status(400).json({ success: false, message: 'Invalid JSON body' });
+    }
+    next(err);
+});
 
 app.listen(port, '0.0.0.0', () => {
     console.log(`Server running at http://localhost:${port}`);

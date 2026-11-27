@@ -135,7 +135,10 @@ public class Program
             return Results.BadRequest(new { success = false, message = "Invalid JSON body" });
         }
 
-        if (!body.TryGetProperty("payment_type", out var paymentTypeEl) || string.IsNullOrEmpty(paymentTypeEl.GetString()))
+        if (body.ValueKind != JsonValueKind.Object ||
+            !body.TryGetProperty("payment_type", out var paymentTypeEl) ||
+            paymentTypeEl.ValueKind != JsonValueKind.String ||
+            string.IsNullOrEmpty(paymentTypeEl.GetString()))
         {
             return Results.BadRequest(new
             {

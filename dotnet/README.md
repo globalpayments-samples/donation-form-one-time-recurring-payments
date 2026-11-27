@@ -101,6 +101,7 @@ Processes a one-time donation or initiates a recurring donation.
   "message": "Recurring donation set up successfully!",
   "data": {
     "transactionId": "TXN_xyz789",
+    "paymentMethodId": "PMT_0e09083c-fab5-4929-862a-c2acb989f48a",
     "cardBrandTransactionId": "MCT_abc123",
     "status": "CAPTURED",
     "amount": 10.00,

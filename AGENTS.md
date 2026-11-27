@@ -5,7 +5,7 @@
 ## Critical Patterns
 
 1. **Every implementation builds the Drop-In access token request by hand.** `nodejs/server.js`, `php/get-access-token.php`, `java/src/main/java/com/globalpayments/example/ProcessPaymentServlet.java`, and `dotnet/Program.cs` all post directly to `/ucp/accesstoken` with `app_id`, a random `nonce`, `secret = SHA-512(nonce + GP_APP_KEY)`, `grant_type = client_credentials`, `seconds_to_expire = 600`, `permissions = ["PMT_POST_Create_Single"]`, and `X-GP-Version: 2021-03-22`. If any of those fields drift, the browser never gets a usable Drop-In token.
-2. **`payment_type=recurring` is only the first recurring payment, not a scheduler.** `processRecurring()`, `ProcessRecurring()`, and the PHP recurring handler still call `charge()` immediately and only attach stored-credential metadata (`Payer`/`CardHolder`, `Recurring`, `First`). `frequency`, `start_date`, `end_date`, and `num_payments` are echoed back in the response; nothing is stored and no later rebill job exists.
+2. **`payment_type=recurring` is only the first recurring payment, not a scheduler.** `processRecurring()`, `ProcessRecurring()`, and the PHP recurring handler still call `charge()` immediately, attach stored-credential metadata (`Payer`/`CardHolder`, `Recurring`, `First`) and request a multi-use token, so GP API stores the card and the response carries it as `paymentMethodId` next to the `cardBrandTransactionId` scheme reference. `frequency`, `start_date`, `end_date`, and `num_payments` are echoed back in the response; the app does not persist them and no later rebill job exists, so the caller has to keep `paymentMethodId` and `cardBrandTransactionId` for the next charges.
 3. **The browser is hard-wired to sandbox.** Every active frontend copy calls `GlobalPayments.configure()` with `apiVersion: '2021-03-22'` and `env: 'sandbox'` in `initializePaymentForm()`. Switching only backend credentials to production leaves tokenization pointed at sandbox.
 
 ## Repository Structure
@@ -98,7 +98,7 @@ This matters because every backend makes the UCP token request directly instead 
 
 **Tokenization flow:** active `index.html`/`wwwroot/index.html` copy → `POST /get-access-token` → `GlobalPayments.configure()` + Drop-In UI → `payment_reference` token.
 **One-time donation flow:** browser `cardForm.on('token-success', ...)` → `POST /process-donation` with `payment_type=one-time` → backend `charge().withCurrency().execute()` → success/error JSON.
-**First recurring payment flow:** same browser tokenization → `POST /process-donation` with recurring fields → backend `charge().withStoredCredential(...First...)` → response may include `cardBrandTransactionId`, but nothing schedules the next payment.
+**First recurring payment flow:** same browser tokenization → `POST /process-donation` with recurring fields → backend `charge().withStoredCredential(...First...)` plus a multi-use token request → response includes the stored `paymentMethodId` and `cardBrandTransactionId`, but nothing schedules the next payment.
 
 ## Security Notes
 

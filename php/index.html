@@ -384,6 +384,9 @@
                     : d.durationType === 'num_payments' ? escHtml(d.numPayments) + ' payments'
                     : 'Ongoing';
                 html += row('Duration', durationLabel);
+                if (d.paymentMethodId) {
+                    html += row('Stored Card', '<code>' + escHtml(d.paymentMethodId) + '</code>');
+                }
                 if (d.cardBrandTransactionId) {
                     html += row('Scheme Reference', '<code>' + escHtml(d.cardBrandTransactionId) + '</code>');
                 }

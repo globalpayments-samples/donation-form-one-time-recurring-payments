@@ -91,7 +91,7 @@ Phase 2 — Charge (server-side):
    dotnet restore && dotnet run
 
    # Java
-   mvn clean compile cargo:run
+   mvn clean package cargo:run
    ```
 
 5. **Access the application**
@@ -244,8 +244,8 @@ Each implementation reads credentials from a `.env` file. Copy `.env.sample` to 
 
 | Brand | Number | CVV | Expiry |
 |-------|--------|-----|--------|
-| Visa | 4263 9826 4026 9299 | 123 | Any future |
-| Mastercard | 5425 2334 2424 1200 | 123 | Any future |
+| Visa | 4263 9700 0000 5262 | 123 | Any future |
+| Mastercard | 5425 2300 0000 4415 | 123 | Any future |
 
 ## Security Considerations
 

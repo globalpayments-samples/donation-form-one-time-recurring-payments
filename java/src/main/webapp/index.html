@@ -330,7 +330,7 @@
                     const data = await res.json();
 
                     if (data.success) {
-                        showResult('success', buildSuccessHtml(paymentType, data.data));
+                        showResult('success', buildSuccessHtml(paymentType, data.data), true);
                     } else {
                         showResult('error', 'Donation failed: ' + (data.error || data.message));
                     }
@@ -358,7 +358,7 @@
         function buildSuccessHtml(paymentType, d) {
             const isRecurring = paymentType === 'recurring';
             const typeLabel = isRecurring
-                ? 'Recurring Donation (' + capitalize(d.frequency) + ')'
+                ? 'Recurring Donation (' + escHtml(capitalize(d.frequency)) + ')'
                 : 'One-Time Donation';
             const amount = parseFloat(d.amount).toFixed(2);
 
@@ -367,24 +367,24 @@
 
             html += '<tr><td colspan="2" style="padding:6px 0 2px;font-weight:600;border-bottom:1px solid rgba(0,0,0,0.1);">Donation Summary</td></tr>';
             html += row('Type', typeLabel);
-            html += row('Amount', d.currency + ' ' + amount);
+            html += row('Amount', escHtml(d.currency) + ' ' + escHtml(amount));
             html += row('Donor', escHtml(d.donorName) + ' &lt;' + escHtml(d.donorEmail) + '&gt;');
 
             html += '<tr><td colspan="2" style="padding:10px 0 2px;font-weight:600;border-bottom:1px solid rgba(0,0,0,0.1);">Transaction Details</td></tr>';
-            html += row('Transaction ID', '<code>' + d.transactionId + '</code>');
-            html += row('Status', d.status);
-            html += row('Processed', d.timestamp);
+            html += row('Transaction ID', '<code>' + escHtml(d.transactionId) + '</code>');
+            html += row('Status', escHtml(d.status));
+            html += row('Processed', escHtml(d.timestamp));
 
             if (isRecurring) {
                 html += '<tr><td colspan="2" style="padding:10px 0 2px;font-weight:600;border-bottom:1px solid rgba(0,0,0,0.1);">Recurring Schedule</td></tr>';
-                html += row('Frequency', capitalize(d.frequency));
-                html += row('Start Date', d.startDate);
-                const durationLabel = d.durationType === 'end_date' ? 'Until ' + d.endDate
-                    : d.durationType === 'num_payments' ? d.numPayments + ' payments'
+                html += row('Frequency', escHtml(capitalize(d.frequency)));
+                html += row('Start Date', escHtml(d.startDate));
+                const durationLabel = d.durationType === 'end_date' ? 'Until ' + escHtml(d.endDate)
+                    : d.durationType === 'num_payments' ? escHtml(d.numPayments) + ' payments'
                     : 'Ongoing';
                 html += row('Duration', durationLabel);
                 if (d.cardBrandTransactionId) {
-                    html += row('Scheme Reference', '<code>' + d.cardBrandTransactionId + '</code>');
+                    html += row('Scheme Reference', '<code>' + escHtml(d.cardBrandTransactionId) + '</code>');
                 }
             }
 
@@ -404,14 +404,15 @@
         }
 
         function escHtml(s) {
-            return (s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+            return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
         }
 
-        function showResult(type, message) {
+        // message is plain text unless isHtml is set, server and gateway messages never go in as markup
+        function showResult(type, message, isHtml) {
             const container = document.getElementById('result-container');
             const el = document.getElementById('result-message');
             el.className = 'gp-alert gp-alert-' + (type === 'success' ? 'success' : 'error');
-            el.innerHTML = '<strong>' + (type === 'success' ? 'Success!' : 'Error!') + '</strong> ' + message;
+            el.innerHTML = '<strong>' + (type === 'success' ? 'Success!' : 'Error!') + '</strong> ' + (isHtml ? message : escHtml(message));
             container.style.display = 'block';
             container.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
         }
